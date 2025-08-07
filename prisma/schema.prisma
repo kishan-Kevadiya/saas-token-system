@@ -1,0 +1,554 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model zones {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  name        String    @db.VarChar(255)
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime? @updatedAt @db.DateTime(6)
+  deleted_at  DateTime? @db.DateTime(6)
+  is_active   Int?      @default(1)
+  description String?   @db.VarChar(255)
+  created_by  Int       @db.Int
+  updated_by  Int?      @db.Int
+  deleted_by  Int?      @db.Int
+
+  states states[] @relation("ZoneStates")
+
+  @@unique([name, deleted_at])
+}
+
+model states {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  name        String    @db.VarChar(255)
+  zone_id     Int       @db.Int
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime? @updatedAt @db.DateTime(6)
+  deleted_at  DateTime? @db.DateTime(6)
+  is_active   Int?      @default(1)
+  description String?   @db.VarChar(255)
+  created_by  Int       @db.Int
+  updated_by  Int?      @db.Int
+  deleted_by  Int?      @db.Int
+
+  zone       zones        @relation("ZoneStates", fields: [zone_id], references: [id])
+  districts  districts[]  @relation("state_districts")
+  ht_company ht_company[] @relation("ht_company_states")
+
+  @@unique([name, deleted_at])
+}
+
+model districts {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  name        String    @db.VarChar(255)
+  state_id    Int       @db.Int
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime? @updatedAt @db.DateTime(6)
+  deleted_at  DateTime? @db.DateTime(6)
+  is_active   Int?      @default(1)
+  description String?   @db.VarChar(255)
+  created_by  Int       @db.Int
+  updated_by  Int?      @db.Int
+  deleted_by  Int?      @db.Int
+
+  state  states   @relation("state_districts", fields: [state_id], references: [id])
+  cities cities[] @relation("district_city")
+
+  @@unique([name, deleted_at])
+}
+
+model city_categories {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  name        String    @db.VarChar(255)
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime? @updatedAt @db.DateTime(6)
+  deleted_at  DateTime? @db.DateTime(6)
+  is_active   Int?      @default(1)
+  description String?   @db.VarChar(255)
+  created_by  Int       @db.Int
+  updated_by  Int?      @db.Int
+  deleted_by  Int?      @db.Int
+
+  cities cities[] @relation("city_categories_city")
+}
+
+model cities {
+  id               Int       @id @default(autoincrement())
+  hash_id          String    @unique @default(uuid()) @db.VarChar(36)
+  name             String    @db.VarChar(255)
+  district_id      Int       @db.Int
+  city_category_id Int?      @db.Int
+  created_at       DateTime  @default(now()) @db.DateTime(6)
+  updated_at       DateTime? @updatedAt @db.DateTime(6)
+  deleted_at       DateTime? @db.DateTime(6)
+  is_active        Int?      @default(1)
+  description      String?   @db.VarChar(255)
+  created_by       Int       @db.Int
+  updated_by       Int?      @db.Int
+  deleted_by       Int?      @db.Int
+
+  district      districts        @relation("district_city", fields: [district_id], references: [id])
+  city_category city_categories? @relation("city_categories_city", fields: [city_category_id], references: [id])
+  pin_codes     pin_codes[]      @relation("pinCode_city")
+  ht_company    ht_company[]     @relation("ht_company")
+
+  @@unique([name, district_id, deleted_at])
+}
+
+model pin_codes {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  pin_code    Int       @db.Int
+  city_id     Int       @db.Int
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime? @updatedAt @db.DateTime(6)
+  deleted_at  DateTime? @db.DateTime(6)
+  is_active   Int?      @default(1)
+  description String?   @db.VarChar(255)
+  created_by  Int       @db.Int
+  updated_by  Int?      @db.Int
+  deleted_by  Int?      @db.Int
+
+  city           cities                  @relation("pinCode_city", fields: [city_id], references: [id])
+  constituencies constituency_pincodes[] @relation("constituency_pincodes_pincode")
+
+  @@unique([pin_code, city_id, deleted_at])
+}
+
+model constituency {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  name        String    @db.VarChar(255)
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime? @updatedAt @db.DateTime(6)
+  deleted_at  DateTime? @db.DateTime(6)
+  is_active   Int?      @default(1)
+  description String?   @db.VarChar(255)
+  created_by  Int       @db.Int
+  updated_by  Int?      @db.Int
+  deleted_by  Int?      @db.Int
+
+  constituency_pincodes constituency_pincodes[] @relation("constituency_pincodes_constituency")
+
+  @@unique([name, deleted_at])
+}
+
+model constituency_pincodes {
+  constituency_id Int
+  pincode_id      Int
+  constituency    constituency @relation("constituency_pincodes_constituency", fields: [constituency_id], references: [id])
+  pincode         pin_codes    @relation("constituency_pincodes_pincode", fields: [pincode_id], references: [id])
+
+  @@id([constituency_id, pincode_id])
+}
+
+model main_company {
+  id      Int    @id @default(autoincrement())
+  hash_id String @unique @default(uuid()) @db.VarChar(36)
+
+  company_name String @db.VarChar(255)
+  type         Int?   @default(0)
+
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime? @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  ht_company ht_company[] @relation("ht_netsol_company_main_company")
+}
+
+model ht_company {
+  id                        Int      @id @default(autoincrement())
+  hash_id                   String   @unique @default(uuid()) @db.VarChar(36)
+  main_company_id           Int
+  company_name              String   @db.VarChar(255)
+  fullname                  String?  @db.VarChar(255)
+  asccode                   String   @db.VarChar(125)
+  email                     String?  @db.VarChar(255)
+  contact_no                String?  @db.VarChar(255)
+  username                  String?  @db.VarChar(125)
+  password                  String?  @db.VarChar(255)
+  address                   String?  @db.Text
+  phone                     String?  @db.VarChar(255)
+  latitude                  String?  @db.VarChar(255)
+  longitude                 String?  @db.VarChar(255)
+  sms_or_print              Int?     @db.Int
+  send_sms                  Int?     @db.Int
+  appointment_generate      Int?     @default(0)
+  customer_register         Int?     @default(0)
+  state_id                  Int?     @db.Int
+  city_id                   Int?     @db.Int
+  saturday_off              Int      @default(0) @db.TinyInt // 1 = holiday, 0 = working
+  sunday_off                Int      @default(0) @db.TinyInt // 1 = holiday, 0 = working
+  app_hour                  Int      @default(0)
+  parent_sub_series         Int      @default(0) @db.TinyInt
+  is_generate_token_sms     Int      @default(0) @db.TinyInt // 0 = No, 1 = Yes
+  generate_token_sms_url    String?  @db.Text
+  generate_token_sms_format String?  @db.Text
+  is_print_token            Boolean? @db.TinyInt // 0 = No, 1 = Yes
+  is_download_token         Boolean? @db.TinyInt // 0 = No, 1 = Yes
+  token                     String?  @db.VarChar(255) // Token used during company login
+  logo_url                  String?  @db.Text
+
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime? @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  main_company                   main_company                     @relation("ht_netsol_company_main_company", fields: [main_company_id], references: [id])
+  state                          states?                          @relation("ht_company_states", fields: [state_id], references: [id])
+  city                           cities?                          @relation("ht_company", fields: [city_id], references: [id])
+  ht_users                       ht_users[]                       @relation("ht_users_ht_company")
+  ht_series                      ht_series[]                      @relation("ht_series_ht_company")
+  ht_company_languages           ht_company_languages[]           @relation("ht_company_languages_ht_company")
+  ht_counter_settings            ht_counter_settings[]            @relation("ht_counter_setting_ht_company")
+  ht_department                  ht_department[]                  @relation("ht_deparment_ht_company")
+  ht_counter_filter              ht_counter_filter[]              @relation("ht_company_ht_counter_filter")
+  tokens                         tokens[]                         @relation("tokens_ht_company")
+  ht_appointment_token_form_data ht_appointment_token_form_data[] @relation("ht_appointment_token_form_data_ht_company")
+  ht_buttons                     ht_buttons[]                     @relation("ht_buttons_ht_company")
+  ht_button_settings             ht_button_settings[]             @relation("ht_button_settings_ht_company")
+  ht_user_session_logs           ht_user_session_logs[]           @relation("ht_user_session_logs_ht_company")
+
+  @@unique([asccode, email, contact_no, username, deleted_at])
+}
+
+model ht_users {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  username    String    @db.VarChar(255)
+  password    String    @db.VarChar(255)
+  dept_id     Int       @db.Int
+  name        String    @db.VarChar(255)
+  contact_no  String    @db.VarChar(255)
+  date        DateTime  @default(now()) @db.Timestamp(0)
+  email       String    @db.VarChar(255)
+  counter     String?   @db.VarChar(255)
+  ip          String?   @db.VarChar(255)
+  last_access DateTime? @db.DateTime(0)
+  show_report String?   @db.VarChar(255)
+  is_active   Int       @default(1) @db.TinyInt
+  company_id  Int       @db.Int
+  rights      String?   @db.VarChar(50)
+
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime? @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  ht_company    ht_company     @relation("ht_users_ht_company", fields: [company_id], references: [id])
+  ht_department ht_department? @relation("ht_users_ht_department", fields: [dept_id], references: [id])
+
+  tokens tokens[] @relation("tokens_ht_users")
+
+  ht_user_session_logs ht_user_session_logs[] @relation("ht_user_session_logs_ht_users")
+}
+
+model ht_languages {
+  id         Int       @id @default(autoincrement())
+  hash_id    String    @unique @default(uuid()) @db.VarChar(36)
+  name       String    @db.VarChar(255)
+  code       String    @unique @db.VarChar(10)
+  title      String    @db.VarChar(255)
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime? @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  ht_company_languages ht_company_languages[] @relation("ht_company_languages_ht_languages")
+
+  tokens tokens[] @relation("tokens_ht_languages")
+
+  ht_button_settings ht_button_settings[] @relation("ht_button_settings_ht_languages")
+}
+
+model ht_company_languages {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  company_id  Int       @db.Int
+  language_id Int       @db.Int
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime? @updatedAt @db.DateTime(6)
+  deleted_at  DateTime? @db.DateTime(6)
+
+  company   ht_company   @relation("ht_company_languages_ht_company", fields: [company_id], references: [id])
+  languages ht_languages @relation("ht_company_languages_ht_languages", fields: [language_id], references: [id])
+
+  @@unique([company_id, language_id, deleted_at])
+}
+
+model ht_series {
+  id                         Int         @id @default(autoincrement())
+  hash_id                    String      @unique @default(uuid()) @db.VarChar(36)
+  series_english_name        String      @db.VarChar(255)
+  series_hindi_name          String      @db.VarChar(255)
+  series_regional_name       String      @db.VarChar(255)
+  comapany_id                Int         @db.Int
+  abbreviation               String      @db.VarChar(255)
+  description                String?     @db.VarChar(255)
+  order                      Int         @db.Int
+  priority                   Int         @db.Int
+  avg_waiting_time           Int?        @db.Int
+  start_token                Int?        @db.Int
+  end_token                  Int?        @db.Int
+  parent_series_id           Int?        @db.Int
+  series_image               String?     @db.Text
+  start_time                 String?     @db.VarChar(255)
+  end_time                   String?     @db.VarChar(255)
+  slot_duration              Int?        @db.Int
+  total_counter              Int?        @db.Int
+  toke_per_slot              Int?        @db.Int
+  allow_future_appointment   Int?        @db.Int
+  allow_same_day_appointment Int?        @db.Int
+  future_appointment_days    Int?        @db.Int
+  display_form               Int         @default(0) @db.TinyInt
+  is_active                  Int         @default(0) @db.TinyInt
+  created_at                 DateTime    @default(now()) @db.DateTime(6)
+  updated_at                 DateTime?   @updatedAt @db.DateTime(6)
+  deleted_at                 DateTime?   @db.DateTime(6)
+  company                    ht_company  @relation("ht_series_ht_company", fields: [comapany_id], references: [id])
+  series                     ht_series?  @relation("ht_series_ht_series", fields: [parent_series_id], references: [id])
+  ht_series                  ht_series[] @relation("ht_series_ht_series")
+
+  ht_series_input_fields ht_series_input_fields[] @relation("ht_series_input_fields_ht_series")
+
+  tokens_transfer tokens[] @relation("tokens_ht_series_transfer_series")
+
+  tokens_series tokens[] @relation("tokens_ht_series")
+}
+
+model ht_counter_settings {
+  id            Int       @id @default(autoincrement())
+  hash_id       String    @unique @default(uuid())
+  company_id    Int       @db.Int
+  counter       Int?      @db.Int
+  height        String    @db.VarChar(20)
+  width         String    @db.VarChar(20)
+  counter_width String    @db.VarChar(20)
+  font_size     String    @db.VarChar(20)
+  font_margin   String    @db.VarChar(20)
+  created_at    DateTime  @default(now()) @db.DateTime(6)
+  updated_at    DateTime? @updatedAt @db.DateTime(6)
+  deleted_at    DateTime? @db.DateTime(6)
+
+  company_netsol_customer ht_company @relation("ht_counter_setting_ht_company", fields: [company_id], references: [id])
+}
+
+model ht_department {
+  id                 Int       @id @default(autoincrement())
+  hash_id            String    @unique @default(uuid())
+  company_id         Int?      @db.Int
+  dept_english_name  String?   @db.VarChar(255)
+  dept_hindi_name    String    @db.Text
+  dept_regional_name String    @db.Text
+  allow_abbreviation String?   @db.VarChar(255)
+  status             Int?      @default(0) @db.TinyInt
+  que                Int?      @default(0) @db.TinyInt
+  created_at         DateTime  @default(now()) @db.DateTime(6)
+  updated_at         DateTime? @updatedAt @db.DateTime(6)
+  deleted_at         DateTime? @db.DateTime(6)
+
+  department_company           ht_company?         @relation("ht_deparment_ht_company", fields: [company_id], references: [id])
+  ht_users                     ht_users[]          @relation("ht_users_ht_department")
+  ht_counter_filter_department ht_counter_filter[] @relation("ht_counter_filter_department")
+  ht_buttons                   ht_buttons[]        @relation("ht_buttons_ht_department")
+  ht_counter_filter            ht_counter_filter[] @relation("ht_counter_filter_transfer_department")
+
+  tokens tokens[] @relation("tokens_transfer_ht_department")
+}
+
+model ht_series_input_fields {
+  id                  Int       @id @default(autoincrement())
+  hash_id             String    @unique @default(uuid()) @db.VarChar(36)
+  series_id           Int       @db.Int
+  field_english_name  String    @db.VarChar(255)
+  field_hindi_name    String    @db.VarChar(255)
+  field_regional_name String    @db.VarChar(255)
+  field_type          String    @db.VarChar(50)
+  is_required         Int       @default(0) @db.TinyInt // 0 = No, 1 = Yes
+  created_at          DateTime  @default(now()) @db.DateTime(6)
+  updated_at          DateTime? @updatedAt @db.DateTime(6)
+  deleted_at          DateTime? @db.DateTime(6)
+
+  series ht_series @relation("ht_series_input_fields_ht_series", fields: [series_id], references: [id])
+}
+
+enum TokenStatus {
+  PENDING
+  HOLD
+  ACTIVE
+  TRANSFER
+  WAITING
+  COMPLETED
+}
+
+model tokens {
+  id                           Int         @id @default(autoincrement())
+  hash_id                      String      @unique @default(uuid()) @db.VarChar(36)
+  generate_token_time          DateTime    @default(now()) @db.Timestamp(0)
+  token_transfer_counter_id    Int?        @db.Int
+  token_transfer_department_id Int?        @db.Int
+  token_abbreviation           String      @db.VarChar(50)
+  series_id                    Int         @db.Int
+  token_number                 Int         @db.Int
+  token_date                   DateTime    @db.Date
+  token_calling_time           DateTime?   @db.DateTime(6)
+  token_out_time               DateTime?   @db.DateTime(6)
+  priority                     Int         @db.Int
+  counter_number_id            Int?        @db.Int
+  token_status                 TokenStatus
+  bell_ring                    Int         @default(0) @db.TinyInt
+  bell_time                    DateTime?   @db.DateTime(6)
+  user_id                      Int?        @db.Int
+  token_series_number          String      @db.VarChar(50)
+  reason                       String?     @db.Text
+  language_id                  Int         @db.Int
+  company_id                   Int         @db.Int
+  customer_mobile_number       String?     @db.VarChar(50)
+  customer_name                String?     @db.VarChar(55)
+  hold_in_time                 DateTime?   @db.DateTime(6)
+  hold_out_time                DateTime?   @db.DateTime(6)
+  time_taken                   String      @default("00:00:00") @db.VarChar(70)
+
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime? @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  ht_user                        ht_users?                        @relation("tokens_ht_users", fields: [user_id], references: [id])
+  ht_language                    ht_languages                     @relation("tokens_ht_languages", fields: [language_id], references: [id])
+  token_transfer_counter         ht_counter_filter?               @relation("transfer_token_tokens_ht_counter", fields: [token_transfer_counter_id], references: [id])
+  counter                        ht_counter_filter?               @relation("tokens_ht_counter", fields: [counter_number_id], references: [id])
+  token_transfer_department      ht_department?                   @relation("tokens_transfer_ht_department", fields: [token_transfer_department_id], references: [id])
+  company                        ht_company                       @relation("tokens_ht_company", fields: [company_id], references: [id])
+  token_series                   ht_series                        @relation("tokens_ht_series", fields: [series_id], references: [id])
+  ht_appointment_token_form_data ht_appointment_token_form_data[] @relation("ht_appointment_token_form_data_tokens")
+  ht_series                      ht_series[]                      @relation("tokens_ht_series_transfer_series")
+
+  @@unique([token_number, token_date, company_id, deleted_at])
+}
+
+enum TransferTokenWise {
+  COUNTER
+  DEPARTMENT
+}
+
+enum TransferTokenMethod {
+  MANUAL
+  DIRECT
+}
+
+model ht_counter_filter {
+  id                        Int                  @id @default(autoincrement())
+  hash_id                   String               @unique @default(uuid())
+  dept_id                   Int                  @db.Int
+  company_id                Int                  @db.Int
+  date                      DateTime?            @db.Date
+  counter_no                Int                  @db.Int
+  counter_name              String               @db.VarChar(255)
+  series                    String               @db.VarChar(256)
+  enter_by_admin            Int                  @default(0) @db.TinyInt
+  flag                      String?              @db.VarChar(255)
+  start_time                String               @db.VarChar(200)
+  end_time                  String               @db.VarChar(200)
+  auto_call                 Int?                 @db.Int
+  auto_time                 Int?                 @db.Int
+  dis_srs                   Int?                 @db.Int
+  ip_machine                String?              @db.VarChar(100)
+  transfer_token_wise       TransferTokenWise?
+  transfer_token_method     TransferTokenMethod?
+  transfer_counter_id       Int?                 @db.Int
+  transfer_department_id    Int?                 @db.Int
+  transfer_token_next_click Int                  @default(0) @db.TinyInt // 0 = No, 1 = Yes
+  is_logged_in              Int                  @default(0) @db.TinyInt // 0 = No, 1 = Yes
+
+  created_at          DateTime           @default(now()) @db.DateTime(6)
+  updated_at          DateTime?          @updatedAt @db.DateTime(6)
+  deleted_at          DateTime?          @db.DateTime(6)
+  department          ht_department      @relation("ht_counter_filter_department", fields: [dept_id], references: [id])
+  company             ht_company         @relation("ht_company_ht_counter_filter", fields: [company_id], references: [id])
+  transfer_counter    ht_counter_filter? @relation("ht_counter_filter_transfer_counter", fields: [transfer_counter_id], references: [id])
+  transfer_department ht_department?     @relation("ht_counter_filter_transfer_department", fields: [transfer_department_id], references: [id])
+
+  tokens tokens[] @relation("tokens_ht_counter")
+
+  transfer_tokens tokens[] @relation("transfer_token_tokens_ht_counter")
+
+  ht_counter_filter ht_counter_filter[] @relation("ht_counter_filter_transfer_counter")
+
+  ht_user_session_logs ht_user_session_logs[] @relation("ht_user_session_logs_ht_counter_filter")
+}
+
+model ht_appointment_token_form_data {
+  id             Int    @id @default(autoincrement())
+  hash_id        String @unique @default(uuid()) @db.VarChar(36)
+  company_id     Int    @db.Int
+  token_id       Int    @db.Int
+  appointment_id Int?   @db.Int
+  form_data      Json   @db.Json
+
+  company ht_company @relation("ht_appointment_token_form_data_ht_company", fields: [company_id], references: [id])
+  tokens  tokens     @relation("ht_appointment_token_form_data_tokens", fields: [token_id], references: [id])
+}
+
+model ht_buttons {
+  id         Int    @id @default(autoincrement())
+  hash_id    String @unique @default(uuid()) @db.VarChar(36)
+  dept_id    Int    @db.Int
+  name       String @db.VarChar(255)
+  company_id Int    @db.Int
+
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime? @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  ht_department ht_department? @relation("ht_buttons_ht_department", fields: [dept_id], references: [id])
+  ht_company    ht_company?    @relation("ht_buttons_ht_company", fields: [company_id], references: [id])
+}
+
+enum DisplayTransferToken {
+  WAITING_LIST
+  TRANSFER_LIST
+}
+
+model ht_button_settings {
+  id                        Int                  @id @default(autoincrement())
+  hash_id                   String               @unique @default(uuid()) @db.VarChar(36)
+  language_id               String               @db.VarChar(255)
+  view_style                Int                  @default(0) @db.TinyInt
+  display_scroll            Int                  @default(0) @db.TinyInt
+  service_selection         Int                  @default(0) @db.TinyInt
+  srs_count                 Int?                 @db.Int
+  next_view                 Int?                 @db.Int
+  block_size                Int?                 @db.Int
+  font_size                 Int?                 @db.Int
+  company_id                Int                  @db.Int
+  minutes_of_calling_before String?              @db.VarChar(100)
+  display_transfer_token    DisplayTransferToken
+
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime? @updatedAt @db.DateTime(6)
+  deleted_at DateTime? @db.DateTime(6)
+
+  ht_languages ht_languages? @relation("ht_button_settings_ht_languages", fields: [language_id], references: [code])
+  ht_company   ht_company    @relation("ht_button_settings_ht_company", fields: [company_id], references: [id])
+}
+
+model ht_user_session_logs {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  user_id     Int       @db.Int
+  company_id  Int       @db.Int
+  counter_id  Int       @db.Int
+  login_time  DateTime  @default(now()) @db.DateTime(6)
+  logout_time DateTime? @db.DateTime(6)
+
+  user    ht_users          @relation("ht_user_session_logs_ht_users", fields: [user_id], references: [id])
+  company ht_company        @relation("ht_user_session_logs_ht_company", fields: [company_id], references: [id])
+  counter ht_counter_filter @relation("ht_user_session_logs_ht_counter_filter", fields: [counter_id], references: [id])
+}

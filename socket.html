@@ -1,0 +1,70 @@
+`<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO Test Client</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Socket.IO Test Client</h1>
+    <div id="status">Disconnected</div>
+    <div id="messages"></div>
+    
+    <input type="text" id="messageInput" placeholder="Enter message">
+    <button onclick="sendMessage()">Send Message</button>
+    <button onclick="joinRoom()">Join Room</button>
+    
+    <script>
+        const socket = io('http://localhost:5050/generate-token', {
+            auth: {
+                token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJodC1jb21wLTAwMSIsImFzY2NvZGUiOiJDSFMwMDEiLCJpYXQiOjE3NTMxNjg1NjgsImV4cCI6MTc2MTgwODU2OH0.wnObQ9OUJnioB8ffpHW5yNN2uKP2w3_8Wgjn99yJkNA' // Replace with actual token
+            }
+        });
+
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+
+        socket.on('connect', () => {
+            statusDiv.textContent = 'Connected';
+            statusDiv.style.color = 'green';
+            addMessage('Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            statusDiv.textContent = 'Disconnected';
+            statusDiv.style.color = 'red';
+            addMessage('Disconnected from server');
+        });
+
+        socket.on('notification', (data) => {
+            addMessage('Notification: ' + JSON.stringify(data));
+        });
+
+        socket.on('message', (data) => {
+            addMessage('Message: ' + JSON.stringify(data));
+        });
+
+        socket.on('connect_error', (error) => {
+            addMessage('Connection Error: ' + error.message);
+        });
+
+        function addMessage(message) {
+            const div = document.createElement('div');
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            messagesDiv.appendChild(div);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            socket.emit('message', {
+                content: input.value,
+                room: 'test-room'
+            });
+            input.value = '';
+        }
+
+        function joinRoom() {
+            socket.emit('joinRoom', 'test-room');
+        }
+    </script>
+</body>
+</html>`
