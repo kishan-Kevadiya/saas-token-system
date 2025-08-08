@@ -19,11 +19,14 @@ import { SocketNamespace } from '@/enums/socket.enum';
 export default class TokenService {
 
 private getTimeDifference(fromTimeStr: string, toTimeStr?: string): string {
-  const parse = (str: string): Date => {
-    const cleaned = str.replace(/(\.\d{3})\d{3}/, '$1'); 
-    return new Date(cleaned.replace(' ', 'T') + 'Z'); 
+const parse = (str: string): Date => {
+    const date = new Date(str);
+    if (isNaN(date.getTime())) {
+      throw new Error(`Invalid date format: ${str}`);
+    }
+    return date;
   };
-
+  console.log('fromTimeStr', fromTimeStr)
   const fromTime = parse(fromTimeStr);
   const toTime = toTimeStr ? parse(toTimeStr) : new Date();
 
@@ -40,6 +43,8 @@ private getTimeDifference(fromTimeStr: string, toTimeStr?: string): string {
 }
 
 private addTimeStrings(time1: string, time2: string): string {
+  console.log('time1', time1)
+  console.log('time2', time2)
   const [h1, m1, s1] = time1.split(':').map(Number);
   const [h2, m2, s2] = time2.split(':').map(Number);
 
@@ -54,13 +59,11 @@ private addTimeStrings(time1: string, time2: string): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
-
-
-  private async updateToken(
+ private async updateToken(
     tokenId: string,
     status: TokenStatus,
     reason?: string,
-    timeTaken?: string
+    timeTaken?: string,
   ): Promise<any> {
     const now = new Date();
     const updateData: any = {
@@ -70,7 +73,8 @@ private addTimeStrings(time1: string, time2: string): string {
       ...(timeTaken && { time_taken: timeTaken }),
     };
 
-    if (status === TokenStatus.ACTIVE) updateData.hold_out_time = now;
+
+
     if (status === TokenStatus.HOLD) updateData.hold_in_time = now;
     if (status === TokenStatus.COMPLETED) updateData.token_out_time = now;
 
@@ -79,14 +83,49 @@ private addTimeStrings(time1: string, time2: string): string {
       data: updateData,
       select: {
         hash_id: true,
+        id: true,
+        token_series: {
+          select: { hash_id: true, id: true },
+        },
+        token_abbreviation: true,
+        token_number: true,
+        token_date: true,
+        priority: true,
+        counter: {
+          select: {
+            id: true,
+            hash_id: true,
+            counter_no: true,
+          }
+        },
+        token_series_number: true,
+        ht_language: {
+          select: {
+            id: true,
+            name: true,
+            hash_id: true,
+            code: true,
+          },
+        },
+        customer_mobile_number: true,
+        customer_name: true,
+        generate_token_time: true,
+        ht_appointment_token_form_data: {
+          select: {
+            form_data: true,
+          }
+        },
         token_status: true,
         company_id: true,
         counter_number_id: true,
         company: {
           select: {
             hash_id: true,
+            id: true,
+            company_name: true,
           },
         },
+        time_taken: true,
         series_id: true,
         token_calling_time: true,
         token_out_time: true,
@@ -94,16 +133,89 @@ private addTimeStrings(time1: string, time2: string): string {
         hold_out_time: true,
         user_id: true,
         reason: true,
-        ht_user: { select: { name: true } },
+        token_transfer_department: {
+          select: {
+            id: true,
+            hash_id: true,
+            dept_english_name: true,
+            dept_regional_name: true,
+          }
+        },
+        ht_user: { select: { name: true, id: true, hash_id: true, } },
       },
     });
 
+
     const tokenManager = new CompanyTokenManager(updated.company.hash_id);
+
+
+if (status === TokenStatus.ACTIVE) {
+  updateData.hold_out_time = now;
+  updateData.token_calling_time = now;
+
+  const currentToken = await prisma.tokens.findUnique({
+    where: { hash_id: tokenId },
+    select: {
+      company_id: true,
+      counter_number_id: true,
+      hash_id: true,
+    },
+  });
+
+  if(!currentToken) {
+    throw new HttpBadRequestError('Token not found!');
+  }
+
+  const existingActiveToken = await prisma.tokens.findFirst({
+    where: {
+      token_status: TokenStatus.ACTIVE,
+      deleted_at: null,
+      company_id: currentToken.company_id,
+      counter_number_id: currentToken.counter_number_id,
+      NOT: { hash_id: tokenId },
+    },
+    orderBy: { updated_at: 'desc' },
+  });
+
+  if (existingActiveToken && existingActiveToken.token_calling_time) {
+    const timeDiff = this.getTimeDifference(
+      existingActiveToken.hold_out_time ?  existingActiveToken.hold_out_time.toISOString() : existingActiveToken.token_calling_time.toISOString(),
+      now.toISOString(),
+    );
+
+    const timeTaken = this.addTimeStrings(
+      existingActiveToken.time_taken,
+      timeDiff,
+    );
+
+   const previousToken =  await prisma.tokens.update({
+      where: { hash_id: existingActiveToken.hash_id },
+      data: {
+        token_status: TokenStatus.COMPLETED,
+        token_out_time: now,
+        time_taken: timeTaken,
+        updated_at: now,
+      },
+    });
+
+    await tokenManager.updateToken(previousToken.hash_id, {
+      time_taken: timeTaken,
+      token_out_time: now,
+      token_status: TokenStatus.COMPLETED    })
+
+
+    const token = await tokenManager.getTokenById(previousToken.hash_id)
+    console.log('token ================================================', token)
+  }
+}
+
+    
     await tokenManager.updateToken(updated.hash_id, {
       token_id: updated.hash_id,
       token_status: updated.token_status,
       ...(timeTaken && { time_taken: timeTaken }),
     });
+
 
     const roomName = `company:${updated.company_id}:series:${updated.series_id}`;
     this.emitRoomRefresh(tokenId, roomName);
@@ -120,8 +232,47 @@ private addTimeStrings(time1: string, time2: string): string {
       hold_out_time: updated.hold_out_time,
       token_calling_time: updated.token_calling_time,
       token_out_time: updated.token_out_time,
+      time_token: updated.time_taken,
+      token_series: {
+        id: updated.token_series.id,
+        hash_id: updated.token_series.hash_id,
+      },
+      company: {
+        id: updated.company.id,
+        hash_id: updated.company.hash_id,
+        company_name: updated.company.company_name,
+      },
+      counter: updated.counter
+        ? {
+        id: updated.counter.id,
+        hash_id: updated.counter.hash_id,
+        counter_no: updated.counter.counter_no,
+      }: null,
+      token_series_number: updated.token_series_number,
+      priority: updated.priority,
+      token_id: updated.hash_id,
+      token_abbreviation: updated.token_abbreviation,
+      token_number: updated.token_number,
+      token_date: updated.token_date,
+      customer_name: updated.customer_name,
+      customer_mobile_number: updated.customer_mobile_number,
+      generate_token_time: updated.generate_token_time,
+      language: {
+        id: updated.ht_language.id,
+        name: updated.ht_language.name,
+        hash_id: updated.ht_language.hash_id,
+        code: updated.ht_language.code,
+      },
+      department: {
+        id: updated.token_transfer_department?.id,
+        hash_id: updated.token_transfer_department?.hash_id,
+        name:
+          updated.token_transfer_department?.dept_english_name ??
+          updated.token_transfer_department?.dept_regional_name,
+      },
     };
   }
+  
 
   private async transferToken(
     tokenId: string,
@@ -279,6 +430,7 @@ private addTimeStrings(time1: string, time2: string): string {
       ...redisUpdateData,
     });
 
+    
     const roomName = `company:${companyId}:series:${tokenDetails.token_series.id}`;
     this.emitRoomRefresh(tokenId, roomName);
   }
@@ -343,20 +495,21 @@ private addTimeStrings(time1: string, time2: string): string {
           },
         });
         
-        if (!counterDetail.transfer_token_next_click) {
 
           if (tokenDetails) {
             const timeDiff = this.getTimeDifference((tokenDetails.hold_out_time ? tokenDetails.hold_out_time : tokenDetails.token_calling_time).toISOString());
+            console.log('timeDiff =-=-=-=--=-==-=-==-=-', timeDiff)
             const timeTaken = this.addTimeStrings(
               tokenDetails.time_taken,
               timeDiff
             );
+            console.log('timeTaken =================', timeTaken)
             await prisma.tokens.update({
               where: {
                 id: tokenDetails.id,
               },
               data: {
-                token_status: TokenStatus.COMPLETED,
+                token_status: !counterDetail.transfer_token_next_click ? TokenStatus.COMPLETED : TokenStatus.TRANSFER,
                 token_out_time: new Date(),
                 time_taken: timeTaken,
                 updated_at: new Date(),
@@ -469,20 +622,7 @@ private addTimeStrings(time1: string, time2: string): string {
             token: clonePriorityToken,
           };
 
-        } else {
-          if (!tokenId) {
-            throw new HttpBadRequestError(
-              'Transfer counter ID and token ID are required'
-            );
-          }
-          await this.transferToken(
-            tokenId,
-            tokenManager,
-            currentUser,
-            data.transfer_department_id,
-            data.transfer_counter_id
-          );
-        }
+      
         break;
 
       case 'TRANSFER':
@@ -509,7 +649,6 @@ private addTimeStrings(time1: string, time2: string): string {
         return await this.updateToken(
           tokenDetails.hash_id,
           TokenStatus.PENDING,
-          data.reason
         );
       }
 
@@ -519,16 +658,31 @@ private addTimeStrings(time1: string, time2: string): string {
             'Only ACTIVE tokens can be moved to HOLD!'
           );
         }
+        if(tokenId){
+          await prisma.tokens.update({
+            where: {
+              hash_id: tokenId,
+            },
+            data: {
+              token_status: TokenStatus.COMPLETED,
+              token_calling_time: new Date(),
+              time_taken: this.getTimeDifference(
+                tokenDetails.token_calling_time 
+              )
+            }
+          })
+        }
 
-        const tokenDetail = await tokenManager.getTokenById(tokenDetails.hash_id);
+        const tokenDetail = await tokenManager.getTokenById(
+          tokenDetails.hash_id
+        );
         if (!tokenDetail || !tokenDetail.token_calling_time) {
           throw new HttpBadRequestError('Token not found!');
         }
-        const timeDiff = this.getTimeDifference(tokenDetail.token_calling_time.toISOString())
-        const timeTaken = this.addTimeStrings(
-          tokenDetail.time_taken,
-          timeDiff
+        const timeDiff = this.getTimeDifference(
+          tokenDetail.token_calling_time
         );
+        const timeTaken = this.addTimeStrings(tokenDetail.time_taken, timeDiff);
 
         return await this.updateToken(
           tokenDetails.hash_id,
@@ -537,7 +691,6 @@ private addTimeStrings(time1: string, time2: string): string {
           timeTaken
         );
       }
-
       case 'BREAK': {
         if(!tokenDetails){
           return null
@@ -551,7 +704,6 @@ private addTimeStrings(time1: string, time2: string): string {
         return await this.updateToken(
           tokenDetails.hash_id,
           TokenStatus.COMPLETED,
-          data.reason
         );
       }
 
@@ -565,7 +717,6 @@ private addTimeStrings(time1: string, time2: string): string {
         return await this.updateToken(
           tokenDetails.hash_id,
           TokenStatus.WAITING,
-          data.reason
         );
       }
 
@@ -579,7 +730,6 @@ private addTimeStrings(time1: string, time2: string): string {
         return await this.updateToken(
           tokenDetails.hash_id,
           TokenStatus.ACTIVE,
-          data.reason
         );
       }
 
