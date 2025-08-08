@@ -2,7 +2,7 @@
   "name": "saas-token",
   "version": "2.0.4",
   "description": "a build tool for generating SaaS tokens",
-  "main": "index.ts",
+  "main": " src/index.ts",
   "scripts": {
     "prepare": "is-ci || husky",
     "prebuild": "npm run clean:build",
