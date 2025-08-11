@@ -1,5 +1,6 @@
+import { SeriesSelection } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsNumber, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsNumber, IsString, ValidateNested } from 'class-validator';
 
 export class ButtonSettings {
   @IsString()
@@ -16,8 +17,8 @@ export class CounterSettings {
   @IsString()
   language_id: string;
 
-  @IsNumber()
-  service_selection: number;
+  @IsEnum(SeriesSelection)
+  series_selection: SeriesSelection;
 
   @IsNumber()
   srs_count: number | null;

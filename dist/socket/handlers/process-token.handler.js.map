@@ -1,1 +1,0 @@
-{"version":3,"file":"process-token.handler.js","sourceRoot":"","sources":["../../../src/socket/handlers/process-token.handler.ts"],"names":[],"mappings":";;AACA,gEAQC;AARD,SAAgB,0BAA0B,CACxC,GAAc,EACd,EAAU,EACV,MAAc;IAEd,MAAM,CAAC,EAAE,CAAC,SAAS,EAAE,KAAK,EAAE,IAAI,EAAE,QAAQ,EAAE,EAAE;QAC5C,MAAM,KAAK,GAAG,EAAE,CAAA;IAClB,CAAC,CAAC,CAAC;AACL,CAAC"}
