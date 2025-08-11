@@ -105,7 +105,7 @@ export default class TokenService {
         throw new HttpNotFoundError('Counter not found');
       }
 
-      const buttonSettings = await prisma.ht_button_settings.findFirst({
+      const buttonSettings = await prisma.ht_company_settings.findFirst({
         where: {
           company_id: company.id,
           deleted_at: null,
@@ -115,7 +115,6 @@ export default class TokenService {
         },
       });
 
-      console.log('buttonSettings', buttonSettings);
       const seriesIds = this.parseSeriesIds(counter.series);
 
       const dateRange = this.buildDateFilter(dateFilter);

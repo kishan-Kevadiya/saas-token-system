@@ -1,5 +1,4 @@
-// import { type CurrentUserDto } from '../auth/dto/current-user.dto';
-import { UserResponseDto } from '../user-auth-old/dto/current-user-auth.dto';
+import { UserResponseDto } from '../user-auth/dto/current-user-auth.dto';
 import { CounterDropDownListDto } from './dto/counter-dropdown-list.dto';
 import { type CounterResponseBodyDto } from './dto/counter.dto';
 import prisma from '@/lib/prisma';

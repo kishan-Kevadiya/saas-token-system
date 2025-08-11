@@ -68,8 +68,8 @@ describe("UserAuthController", () => {
         email: "token@example.com",
         contact_no: "9876543210",
         username: "tokenuser",
+        counter_details: null,
         data: null,
-        counter: null,
         ip: "127.0.0.1",
         is_active: 1,
         company: {
@@ -101,7 +101,7 @@ describe("UserAuthController", () => {
             contact_no: "1234567890",
             username: "testuser",
             data: null,
-            counter: null,
+            counter_details: null,
             ip: "127.0.0.1",
             is_active: 1,
             company: {
@@ -144,7 +144,7 @@ describe("UserAuthController", () => {
             contact_no: "1234567890",
             username: "testuser",
             data: null,
-            counter: null,
+            counter_details: null,
             ip: "127.0.0.1",
             is_active: 1,
             company: {

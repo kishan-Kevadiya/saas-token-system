@@ -12,15 +12,16 @@ describe('DepartmentService', () => {
   const service = new DepartmentService();
 
   const mockUser: UserResponseDto = {
-    id: '1',
+    id: 1,
     name: 'Test User',
     email: 'test@example.com',
     company: {
       id: 101,
+      hash_id: 'company_hash',
       company_name: 'Test Company',
     },
     department: {
-      id: 202,
+      id: "202",
       dept_english_name: 'english_name',
       dept_hindi_name: 'hindi_name',
       dept_regional_name: 'regional_name',
@@ -28,7 +29,7 @@ describe('DepartmentService', () => {
     contact_no: '7845122145',
     username: 'user_name',
     data: undefined,
-    counter: undefined,
+    counter_details: null,
     ip: '21.21.1',
     is_active: 0,
     created_at: new Date(),

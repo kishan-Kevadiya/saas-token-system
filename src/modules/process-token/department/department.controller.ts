@@ -30,13 +30,7 @@ export default class DepartmentController extends Api {
         'Department get sucessfully.'
       );
     } catch (e) {
-      this.send(
-        res,
-        null,
-        HttpStatusCode.InternalServerError,
-        'An unexpected error occurred',
-        e
-      );
+      _next(e)
     }
   };
 }

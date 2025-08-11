@@ -16,7 +16,7 @@ export default class SettingsService {
         },
       }),
 
-      prisma.ht_button_settings.findMany({
+      prisma.ht_company_settings.findMany({
         where: {
           company_id: currentUser.company.id,
           deleted_at: null,
@@ -25,7 +25,7 @@ export default class SettingsService {
           hash_id: true,
           language_id: true,
           display_scroll: true,
-          service_selection: true,
+          series_selection: true,
           srs_count: true,
           block_size: true,
           font_size: true,
@@ -43,7 +43,7 @@ export default class SettingsService {
       counter_settings: counterSettings.map((counterSetting) => ({
         id: counterSetting.hash_id,
         language_id: counterSetting.language_id,
-        service_selection: counterSetting.service_selection,
+        series_selection: counterSetting.series_selection,
         srs_count: counterSetting.srs_count,
         block_size: counterSetting.block_size,
         font_size: counterSetting.block_size,

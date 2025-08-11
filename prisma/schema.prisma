@@ -215,8 +215,10 @@ model ht_company {
   tokens                         tokens[]                         @relation("tokens_ht_company")
   ht_appointment_token_form_data ht_appointment_token_form_data[] @relation("ht_appointment_token_form_data_ht_company")
   ht_buttons                     ht_buttons[]                     @relation("ht_buttons_ht_company")
-  ht_button_settings             ht_button_settings[]             @relation("ht_button_settings_ht_company")
+  ht_company_settings            ht_company_settings[]            @relation("ht_company_settings_ht_company")
   ht_user_session_logs           ht_user_session_logs[]           @relation("ht_user_session_logs_ht_company")
+  token_logs                     token_logs[]                     @relation("token_logs_ht_company")
+  print_settings                 print_settings[]                 @relation("print_settings_ht_company")
 
   @@unique([asccode, email, contact_no, username, deleted_at])
 }
@@ -265,7 +267,7 @@ model ht_languages {
 
   tokens tokens[] @relation("tokens_ht_languages")
 
-  ht_button_settings ht_button_settings[] @relation("ht_button_settings_ht_languages")
+  ht_company_settings ht_company_settings[] @relation("ht_company_settings_ht_languages")
 }
 
 model ht_company_languages {
@@ -284,37 +286,38 @@ model ht_company_languages {
 }
 
 model ht_series {
-  id                         Int         @id @default(autoincrement())
-  hash_id                    String      @unique @default(uuid()) @db.VarChar(36)
-  series_english_name        String      @db.VarChar(255)
-  series_hindi_name          String      @db.VarChar(255)
-  series_regional_name       String      @db.VarChar(255)
-  comapany_id                Int         @db.Int
-  abbreviation               String      @db.VarChar(255)
-  description                String?     @db.VarChar(255)
-  order                      Int         @db.Int
-  priority                   Int         @db.Int
-  avg_waiting_time           Int?        @db.Int
-  start_token                Int?        @db.Int
-  end_token                  Int?        @db.Int
-  parent_series_id           Int?        @db.Int
-  series_image               String?     @db.Text
-  start_time                 String?     @db.VarChar(255)
-  end_time                   String?     @db.VarChar(255)
-  slot_duration              Int?        @db.Int
-  total_counter              Int?        @db.Int
-  toke_per_slot              Int?        @db.Int
-  allow_future_appointment   Int?        @db.Int
-  allow_same_day_appointment Int?        @db.Int
-  future_appointment_days    Int?        @db.Int
-  display_form               Int         @default(0) @db.TinyInt
-  is_active                  Int         @default(0) @db.TinyInt
-  created_at                 DateTime    @default(now()) @db.DateTime(6)
-  updated_at                 DateTime?   @updatedAt @db.DateTime(6)
-  deleted_at                 DateTime?   @db.DateTime(6)
-  company                    ht_company  @relation("ht_series_ht_company", fields: [comapany_id], references: [id])
-  series                     ht_series?  @relation("ht_series_ht_series", fields: [parent_series_id], references: [id])
-  ht_series                  ht_series[] @relation("ht_series_ht_series")
+  id                            Int         @id @default(autoincrement())
+  hash_id                       String      @unique @default(uuid()) @db.VarChar(36)
+  series_english_name           String      @db.VarChar(255)
+  series_hindi_name             String      @db.VarChar(255)
+  series_regional_name          String      @db.VarChar(255)
+  comapany_id                   Int         @db.Int
+  abbreviation                  String      @db.VarChar(255)
+  description                   String?     @db.VarChar(255)
+  order                         Int         @db.Int
+  priority                      Int         @db.Int
+  is_series_generate_type_apply Int         @default(0) @db.TinyInt
+  avg_waiting_time              Int?        @db.Int
+  start_token                   Int?        @db.Int
+  end_token                     Int?        @db.Int
+  parent_series_id              Int?        @db.Int
+  series_image                  String?     @db.Text
+  start_time                    String?     @db.VarChar(255)
+  end_time                      String?     @db.VarChar(255)
+  slot_duration                 Int?        @db.Int
+  total_counter                 Int?        @db.Int
+  toke_per_slot                 Int?        @db.Int
+  allow_future_appointment      Int?        @db.Int
+  allow_same_day_appointment    Int?        @db.Int
+  future_appointment_days       Int?        @db.Int
+  display_form                  Int         @default(0) @db.TinyInt
+  is_active                     Int         @default(0) @db.TinyInt
+  created_at                    DateTime    @default(now()) @db.DateTime(6)
+  updated_at                    DateTime?   @updatedAt @db.DateTime(6)
+  deleted_at                    DateTime?   @db.DateTime(6)
+  company                       ht_company  @relation("ht_series_ht_company", fields: [comapany_id], references: [id])
+  series                        ht_series?  @relation("ht_series_ht_series", fields: [parent_series_id], references: [id])
+  ht_series                     ht_series[] @relation("ht_series_ht_series")
 
   ht_series_input_fields ht_series_input_fields[] @relation("ht_series_input_fields_ht_series")
 
@@ -429,6 +432,7 @@ model tokens {
   token_series                   ht_series                        @relation("tokens_ht_series", fields: [series_id], references: [id])
   ht_appointment_token_form_data ht_appointment_token_form_data[] @relation("ht_appointment_token_form_data_tokens")
   ht_series                      ht_series[]                      @relation("tokens_ht_series_transfer_series")
+  token_logs                     token_logs[]                     @relation("token_logs_ht_tokens")
 
   @@unique([token_number, token_date, company_id, deleted_at])
 }
@@ -482,6 +486,8 @@ model ht_counter_filter {
   ht_counter_filter ht_counter_filter[] @relation("ht_counter_filter_transfer_counter")
 
   ht_user_session_logs ht_user_session_logs[] @relation("ht_user_session_logs_ht_counter_filter")
+
+  token_logs token_logs[] @relation("token_logs_ht_counter_filter")
 }
 
 model ht_appointment_token_form_data {
@@ -516,27 +522,39 @@ enum DisplayTransferToken {
   TRANSFER_LIST
 }
 
-model ht_button_settings {
-  id                        Int                  @id @default(autoincrement())
-  hash_id                   String               @unique @default(uuid()) @db.VarChar(36)
-  language_id               String               @db.VarChar(255)
-  view_style                Int                  @default(0) @db.TinyInt
-  display_scroll            Int                  @default(0) @db.TinyInt
-  service_selection         Int                  @default(0) @db.TinyInt
-  srs_count                 Int?                 @db.Int
-  next_view                 Int?                 @db.Int
-  block_size                Int?                 @db.Int
-  font_size                 Int?                 @db.Int
-  company_id                Int                  @db.Int
-  minutes_of_calling_before String?              @db.VarChar(100)
-  display_transfer_token    DisplayTransferToken
+enum SeriesSelection {
+  SINGLE
+  MULTIPLE
+}
+
+enum SeriesTokenGenerationType {
+  SharedTokenSeries
+  IndividualTokenSeries
+  RangeTokenGeneration
+}
+
+model ht_company_settings {
+  id                         Int                       @id @default(autoincrement())
+  hash_id                    String                    @unique @default(uuid()) @db.VarChar(36)
+  language_id                String                    @db.VarChar(255)
+  view_style                 Int                       @default(0) @db.TinyInt
+  display_scroll             Int                       @default(0) @db.TinyInt
+  series_selection           SeriesSelection           @default(SINGLE)
+  series_token_generate_type SeriesTokenGenerationType @default(SharedTokenSeries)
+  srs_count                  Int?                      @db.Int
+  next_view                  Int?                      @db.Int
+  block_size                 Int?                      @db.Int
+  font_size                  Int?                      @db.Int
+  company_id                 Int                       @db.Int
+  minutes_of_calling_before  String?                   @db.VarChar(100)
+  display_transfer_token     DisplayTransferToken
 
   created_at DateTime  @default(now()) @db.DateTime(6)
   updated_at DateTime? @updatedAt @db.DateTime(6)
   deleted_at DateTime? @db.DateTime(6)
 
-  ht_languages ht_languages? @relation("ht_button_settings_ht_languages", fields: [language_id], references: [code])
-  ht_company   ht_company    @relation("ht_button_settings_ht_company", fields: [company_id], references: [id])
+  ht_languages ht_languages? @relation("ht_company_settings_ht_languages", fields: [language_id], references: [code])
+  ht_company   ht_company    @relation("ht_company_settings_ht_company", fields: [company_id], references: [id])
 }
 
 model ht_user_session_logs {
@@ -551,4 +569,121 @@ model ht_user_session_logs {
   user    ht_users          @relation("ht_user_session_logs_ht_users", fields: [user_id], references: [id])
   company ht_company        @relation("ht_user_session_logs_ht_company", fields: [company_id], references: [id])
   counter ht_counter_filter @relation("ht_user_session_logs_ht_counter_filter", fields: [counter_id], references: [id])
+}
+
+enum PrintSettingKeys {
+  NO_OF_PRINT_TOKEN
+  TOKEN_SPACE_BETWEEN_LINES
+  TOKEN_PWIDTH
+  TOKEN_PHEIGHT
+  DISPLAY_LOGO
+  LOGO_SIZE
+  LOGO_STARTPOS
+  ISSUE_DATE_TIME
+  ISSUE_DATE_TIME_SIZE
+  ISSUE_DATE_TIME_SPOS
+  DISPLAY_COMPANY_LOCATION
+  COMPANY_LOCATION_FONT_SIZE
+  COMPANY_LOCATION_POS
+  DISPLAY_COMPANY_TITLE
+  COMPANY_TITLE_FONT_SIZE
+  COMPANY_TITLE_POS
+  DISPLAY_DEPARTMENT_TITLE
+  DEPT_TITLE_SIZE
+  DEPT_TITLE_SPOS
+  DISPLAY_COUNTER_TITLE
+  COUNTER_TITLE_SIZE
+  COUNTER_TITLE_SPOS
+  TOKEN_NO_FONT_SIZE
+  TOKEN_NO_POS
+  TOKEN_TITLE_BEFORE_PRINT
+  HINDI_TOKEN_TITLE_BEFORE_PRINT
+  RLANGUAGE_TOKEN_TITLE_BEFORE_PRINT
+  TITLE_BEFORE_PRINT_TOKEN_NO_FONT_SIZE
+  TOKEN_TITLE_START_POS
+  DISPLAY_TOKEN_BARCODE
+  BARCODE_SIZE
+  BARCODE_STARTPOS
+  DISPLAY_WAITING_TOKEN_COUNT
+  LABEL_DISPLAY_WAITING_TOKEN
+  HINDI_LABEL_DISPLAY_WAITING_TOKEN
+  RLANGUAGE_LABEL_DISPLAY_WAITING_TOKEN
+  WAITING_TOKEN_LBL_FONT_SIZE
+  WAITING_TOKEN_START_POS
+  DISPLAY_WAITING_TOKEN_TIME
+  AVERAGE_WAITING_TIME
+  DISPLAY_TOKEN_WAITING_TIME
+  HINDI_DISPLAY_TOKEN_WAITING_TIME
+  RLANGUAGE_DISPLAY_TOKEN_WAITING_TIME
+  WAITING_TOKEN_TIME_FONT_SIZE
+  WAITING_TIME_START_POS
+  DISPLAY_FOOTER_1
+  FOOTER_1_TXT
+  HINDI_FOOTER_1_TXT
+  RLANGUAGE_FOOTER_1_TXT
+  FOOTER_1_SIZE
+  FOOTER_1_SPOS
+  DISPLAY_FOOTER_2
+  FOOTER_2_TXT
+  HINDI_FOOTER_2_TXT
+  RLANGUAGE_FOOTER_2_TXT
+  FOOTER_2_SIZE
+  FOOTER_2_SPOS
+  DISPLAY_FOOTER_3
+  FOOTER_3_TXT
+  HINDI_FOOTER_3_TXT
+  RLANGUAGE_FOOTER_3_TXT
+  FOOTER_3_SIZE
+  FOOTER_3_SPOS
+  DISPLAY_CAUTIONARY_TOKEN_MESSAGE
+  LBL_FOR_DISPLAY_TOKEN_CAUTIONARY
+  HINDI_LBL_FOR_DISPLAY_TOKEN_CAUTIONARY
+  RLANGUAGE_LBL_FOR_DISPLAY_TOKEN_CAUTIONARY
+  TOKEN_CAUTIONARY_SIZE
+  TOKEN_CAUTIONARY_POS
+  PRINTORDER
+  DISPLAY_WELCOME_TOKEN_MESSAGE
+  LBL_FOR_DISPLAY_TOKEN_WELCOME
+  HINDI_LBL_FOR_DISPLAY_TOKEN_WELCOME
+  RLANGUAGE_LBL_FOR_DISPLAY_TOKEN_WELCOME
+  TOKEN_WELCOME_SIZE
+  TOKEN_WELCOME_POS
+  LOGO_HEIGHT
+  LOGO_WIDTH
+  BARCODE_HEIGHT
+  BARCODE_WIDTH
+  WAITING_TIME_TYPE //  INDIVIDUAL = 0 , PROCESSING = 1 , QUEUE_POSITION = 2
+}
+
+model token_logs {
+  id              Int         @id @default(autoincrement())
+  hash_id         String      @unique @default(uuid()) @db.VarChar(36)
+  counter_id      Int         @db.Int
+  company_id      Int         @db.Int
+  previous_status TokenStatus
+  current_status  TokenStatus
+  time_taken      String      @db.VarChar(50)
+  token_id        Int         @db.Int
+  created_at      DateTime    @default(now()) @db.DateTime(6)
+  created_by      Int         @db.Int
+
+  company ht_company        @relation("token_logs_ht_company", fields: [company_id], references: [id])
+  counter ht_counter_filter @relation("token_logs_ht_counter_filter", fields: [counter_id], references: [id])
+  token   tokens            @relation("token_logs_ht_tokens", fields: [token_id], references: [id])
+}
+
+model print_settings {
+  id            Int              @id @default(autoincrement())
+  hash_id       String           @unique @default(uuid()) @db.VarChar(36)
+  company_id    Int              @db.Int
+  setting_key   PrintSettingKeys
+  setting_value String           @db.Text
+  created_at    DateTime         @default(now()) @db.DateTime(6)
+  updated_at    DateTime?        @updatedAt @db.DateTime(6)
+  created_by    Int              @db.Int
+  updated_by    Int              @db.Int
+
+  company ht_company @relation("print_settings_ht_company", fields: [company_id], references: [id])
+
+  @@unique([company_id, setting_key])
 }

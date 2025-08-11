@@ -6,7 +6,7 @@ jest.mock('@/lib/prisma', () => ({
   ht_counter_settings: {
     findMany: jest.fn(),
   },
-  ht_button_settings: {
+  ht_company_settings: {
     findMany: jest.fn(),
   },
 }));
@@ -15,15 +15,16 @@ describe('SettingsService', () => {
   const service = new SettingsService();
 
   const mockUser: UserResponseDto = {
-    id: '1',
+    id: 1,
     name: 'Test User',
     email: 'test@example.com',
     company: {
       id: 101,
+      hash_id: 'company_hash',
       company_name: 'Test Company',
     },
     department: {
-      id: 202,
+      id: "202",
       dept_english_name: 'english_name',
       dept_hindi_name: 'hindi_name',
       dept_regional_name: 'regional_name',
@@ -31,7 +32,7 @@ describe('SettingsService', () => {
     contact_no: '7845122145',
     username: 'user_name',
     data: undefined,
-    counter: undefined,
+    counter_details: undefined,
     ip: '21.21.1',
     is_active: 0,
     created_at: new Date(),
@@ -49,7 +50,7 @@ describe('SettingsService', () => {
   ];
 
   it('should return settings successfully', async () => {
-    (prisma.ht_button_settings.findMany as jest.Mock).mockResolvedValue(
+    (prisma.ht_company_settings.findMany as jest.Mock).mockResolvedValue(
       mockButtonSettings
     );
     (prisma.ht_counter_settings.findMany as jest.Mock).mockResolvedValue(
@@ -58,7 +59,7 @@ describe('SettingsService', () => {
 
     const result = await service.getSettings(mockUser);
 
-    expect(prisma.ht_button_settings.findMany).toHaveBeenCalledWith({
+    expect(prisma.ht_company_settings.findMany).toHaveBeenCalledWith({
       where: {
         company_id: 101,
         deleted_at: null,
@@ -108,7 +109,7 @@ describe('SettingsService', () => {
   });
 
   it('should return empty arrays if no settings found', async () => {
-    (prisma.ht_button_settings.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.ht_company_settings.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.ht_counter_settings.findMany as jest.Mock).mockResolvedValue([]);
 
     const result = await service.getSettings(mockUser);

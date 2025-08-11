@@ -486,7 +486,7 @@ export default class TokenService {
             company: {
               select: {
                 logo_url: true,
-                ht_button_settings: {
+                ht_company_settings: {
                   select: {
                     minutes_of_calling_before: true,
                   },
