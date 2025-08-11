@@ -65,6 +65,8 @@ export interface ITokenData {
   token_generate_time: Date;
   form_data?: string
   time_taken: string
+  hold_out_time?: Date | null;
+  hold_in_time?: Date | null;
 }
 
 

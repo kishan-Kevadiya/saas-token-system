@@ -3,7 +3,6 @@ import {
   TransferTokenMethod,
   TransferTokenWise,
 } from '@prisma/client';
-// import EmailNotificationService from '../email-notifications/email-notifications.service';
 import { type UserResponseDto } from '../user-auth/dto/current-user-auth.dto';
 import { type tokenStatusUpdateDto } from './dto/token-update-status-input.dto';
 import { type tokenDto } from './dto/token.dto';
@@ -17,69 +16,135 @@ import { HttpBadRequestError } from '@/lib/errors';
 import { SocketNamespace } from '@/enums/socket.enum';
 
 export default class TokenService {
+  private getTimeDifference(
+    fromTimeStr: Date | string,
+    toTimeStr?: string
+  ): string {
+    const parse = (str: string): Date => {
+      const date = new Date(str);
+      if (isNaN(date.getTime())) {
+        throw new Error(`Invalid date format: ${str}`);
+      }
+      return date;
+    };
+    const fromTime = parse(
+      typeof fromTimeStr === 'string' ? fromTimeStr : fromTimeStr.toISOString()
+    );
+    const toTime = toTimeStr ? parse(toTimeStr) : new Date();
 
-private getTimeDifference(fromTimeStr: string, toTimeStr?: string): string {
-const parse = (str: string): Date => {
-    const date = new Date(str);
-    if (isNaN(date.getTime())) {
-      throw new Error(`Invalid date format: ${str}`);
-    }
-    return date;
-  };
-  console.log('fromTimeStr', fromTimeStr)
-  const fromTime = parse(fromTimeStr);
-  const toTime = toTimeStr ? parse(toTimeStr) : new Date();
+    let diffMs = toTime.getTime() - fromTime.getTime();
+    if (diffMs < 0) diffMs = 0;
 
-  let diffMs = toTime.getTime() - fromTime.getTime();
-  if (diffMs < 0) diffMs = 0;
+    const hours = Math.floor(diffMs / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+    const seconds = Math.floor((diffMs % 60000) / 1000);
 
-  const hours = Math.floor(diffMs / 3600000);
-  const minutes = Math.floor((diffMs % 3600000) / 60000);
-  const seconds = Math.floor((diffMs % 60000) / 1000);
+    const pad = (n: number) => n.toString().padStart(2, '0');
 
-  const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
 
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-}
+  private addTimeStrings(time1: string, time2: string): string {
+    const [h1, m1, s1] = time1.split(':').map(Number);
+    const [h2, m2, s2] = time2.split(':').map(Number);
 
-private addTimeStrings(time1: string, time2: string): string {
-  console.log('time1', time1)
-  console.log('time2', time2)
-  const [h1, m1, s1] = time1.split(':').map(Number);
-  const [h2, m2, s2] = time2.split(':').map(Number);
+    let seconds = s1 + s2;
+    let minutes = m1 + m2 + Math.floor(seconds / 60);
+    const hours = h1 + h2 + Math.floor(minutes / 60);
 
-  let seconds = s1 + s2;
-  let minutes = m1 + m2 + Math.floor(seconds / 60);
-  let hours = h1 + h2 + Math.floor(minutes / 60);
+    seconds = seconds % 60;
+    minutes = minutes % 60;
 
-  seconds = seconds % 60;
-  minutes = minutes % 60;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
 
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-}
-
- private async updateToken(
-    tokenId: string,
-    status: TokenStatus,
-    reason?: string,
-    timeTaken?: string,
-  ): Promise<any> {
+  private async updateToken(args: {
+    tokenId: string;
+    status: TokenStatus;
+    reason?: string;
+    timeTaken?: string;
+  }): Promise<any> {
     const now = new Date();
     const updateData: any = {
-      token_status: status,
+      token_status: args.status,
       updated_at: now,
-      ...(reason && { reason }),
-      ...(timeTaken && { time_taken: timeTaken }),
+      ...(args.reason && { reason: args.reason }),
+      ...(args.timeTaken && { time_taken: args.timeTaken }),
     };
 
+    if (args.status === TokenStatus.HOLD) updateData.hold_in_time = now;
+    if (args.status === TokenStatus.COMPLETED) updateData.token_out_time = now;
 
+    if (args.status === TokenStatus.ACTIVE) {
+      updateData.hold_out_time = now;
+      updateData.token_calling_time = now;
 
-    if (status === TokenStatus.HOLD) updateData.hold_in_time = now;
-    if (status === TokenStatus.COMPLETED) updateData.token_out_time = now;
+      const currentToken = await prisma.tokens.findUnique({
+        where: { hash_id: args.tokenId },
+        select: {
+          company_id: true,
+          counter_number_id: true,
+          hash_id: true,
+          company: {
+            select: {
+              hash_id: true,
+            },
+          },
+        },
+      });
 
+      if (!currentToken) {
+        throw new HttpBadRequestError('Token not found!');
+      }
+
+      const existingActiveToken = await prisma.tokens.findFirst({
+        where: {
+          token_status: TokenStatus.ACTIVE,
+          deleted_at: null,
+          company_id: currentToken.company_id,
+          counter_number_id: currentToken.counter_number_id,
+          NOT: { hash_id: args.tokenId },
+        },
+        orderBy: { updated_at: 'desc' },
+      });
+
+      if (existingActiveToken && existingActiveToken.token_calling_time) {
+        const timeDiff = this.getTimeDifference(
+          existingActiveToken.hold_out_time
+            ? existingActiveToken.hold_out_time
+            : existingActiveToken.token_calling_time,
+          now.toISOString()
+        );
+
+        const timeTaken = this.addTimeStrings(
+          existingActiveToken.time_taken,
+          timeDiff
+        );
+
+        const previousToken = await prisma.tokens.update({
+          where: { hash_id: existingActiveToken.hash_id },
+          data: {
+            token_status: TokenStatus.COMPLETED,
+            token_out_time: now,
+            time_taken: timeTaken,
+            updated_at: now,
+          },
+        });
+
+        const tokenManager = new CompanyTokenManager(
+          currentToken.company.hash_id
+        );
+
+        await tokenManager.updateToken(previousToken.hash_id, {
+          time_taken: timeTaken,
+          token_out_time: now,
+          token_status: TokenStatus.COMPLETED,
+        });
+      }
+    }
     const updated = await prisma.tokens.update({
-      where: { hash_id: tokenId },
+      where: { hash_id: args.tokenId },
       data: updateData,
       select: {
         hash_id: true,
@@ -96,7 +161,7 @@ private addTimeStrings(time1: string, time2: string): string {
             id: true,
             hash_id: true,
             counter_no: true,
-          }
+          },
         },
         token_series_number: true,
         ht_language: {
@@ -113,7 +178,7 @@ private addTimeStrings(time1: string, time2: string): string {
         ht_appointment_token_form_data: {
           select: {
             form_data: true,
-          }
+          },
         },
         token_status: true,
         company_id: true,
@@ -139,86 +204,24 @@ private addTimeStrings(time1: string, time2: string): string {
             hash_id: true,
             dept_english_name: true,
             dept_regional_name: true,
-          }
+          },
         },
-        ht_user: { select: { name: true, id: true, hash_id: true, } },
+        ht_user: { select: { name: true, id: true, hash_id: true } },
       },
     });
-
 
     const tokenManager = new CompanyTokenManager(updated.company.hash_id);
 
-
-if (status === TokenStatus.ACTIVE) {
-  updateData.hold_out_time = now;
-  updateData.token_calling_time = now;
-
-  const currentToken = await prisma.tokens.findUnique({
-    where: { hash_id: tokenId },
-    select: {
-      company_id: true,
-      counter_number_id: true,
-      hash_id: true,
-    },
-  });
-
-  if(!currentToken) {
-    throw new HttpBadRequestError('Token not found!');
-  }
-
-  const existingActiveToken = await prisma.tokens.findFirst({
-    where: {
-      token_status: TokenStatus.ACTIVE,
-      deleted_at: null,
-      company_id: currentToken.company_id,
-      counter_number_id: currentToken.counter_number_id,
-      NOT: { hash_id: tokenId },
-    },
-    orderBy: { updated_at: 'desc' },
-  });
-
-  if (existingActiveToken && existingActiveToken.token_calling_time) {
-    const timeDiff = this.getTimeDifference(
-      existingActiveToken.hold_out_time ?  existingActiveToken.hold_out_time.toISOString() : existingActiveToken.token_calling_time.toISOString(),
-      now.toISOString(),
-    );
-
-    const timeTaken = this.addTimeStrings(
-      existingActiveToken.time_taken,
-      timeDiff,
-    );
-
-   const previousToken =  await prisma.tokens.update({
-      where: { hash_id: existingActiveToken.hash_id },
-      data: {
-        token_status: TokenStatus.COMPLETED,
-        token_out_time: now,
-        time_taken: timeTaken,
-        updated_at: now,
-      },
-    });
-
-    await tokenManager.updateToken(previousToken.hash_id, {
-      time_taken: timeTaken,
-      token_out_time: now,
-      token_status: TokenStatus.COMPLETED    })
-
-
-    const token = await tokenManager.getTokenById(previousToken.hash_id)
-    console.log('token ================================================', token)
-  }
-}
-
-    
     await tokenManager.updateToken(updated.hash_id, {
       token_id: updated.hash_id,
       token_status: updated.token_status,
-      ...(timeTaken && { time_taken: timeTaken }),
+      ...(args.timeTaken && { time_taken: args.timeTaken }),
+      hold_out_time: updated.hold_out_time,
+      hold_in_time: updated.hold_in_time,
     });
 
-
     const roomName = `company:${updated.company_id}:series:${updated.series_id}`;
-    this.emitRoomRefresh(tokenId, roomName);
+    this.emitRoomRefresh(args.tokenId, roomName);
 
     return {
       id: updated.hash_id,
@@ -244,10 +247,11 @@ if (status === TokenStatus.ACTIVE) {
       },
       counter: updated.counter
         ? {
-        id: updated.counter.id,
-        hash_id: updated.counter.hash_id,
-        counter_no: updated.counter.counter_no,
-      }: null,
+            id: updated.counter.id,
+            hash_id: updated.counter.hash_id,
+            counter_no: updated.counter.counter_no,
+          }
+        : null,
       token_series_number: updated.token_series_number,
       priority: updated.priority,
       token_id: updated.hash_id,
@@ -272,7 +276,6 @@ if (status === TokenStatus.ACTIVE) {
       },
     };
   }
-  
 
   private async transferToken(
     tokenId: string,
@@ -281,7 +284,6 @@ if (status === TokenStatus.ACTIVE) {
     transferDepartmentId?: string | undefined,
     transferCounterId?: string
   ) {
-    console.log('currentUser ', currentUser);
     const {
       counter_details: { hash_id: counterHashId, id: counterId },
       company: { hash_id: companyHashId, id: companyId },
@@ -331,20 +333,20 @@ if (status === TokenStatus.ACTIVE) {
       }),
       transferDepartmentId
         ? prisma.ht_department.findUniqueOrThrow({
-          where: { hash_id: transferDepartmentId, deleted_at: null },
-          select: {
-            id: true,
-            hash_id: true,
-            dept_english_name: true,
-            dept_regional_name: true,
-          },
-        })
+            where: { hash_id: transferDepartmentId, deleted_at: null },
+            select: {
+              id: true,
+              hash_id: true,
+              dept_english_name: true,
+              dept_regional_name: true,
+            },
+          })
         : Promise.resolve(null),
       transferCounterId
         ? prisma.ht_counter_filter.findUniqueOrThrow({
-          where: { hash_id: transferCounterId, deleted_at: null },
-          select: { id: true, hash_id: true, counter_no: true },
-        })
+            where: { hash_id: transferCounterId, deleted_at: null },
+            select: { id: true, hash_id: true, counter_no: true },
+          })
         : Promise.resolve(null),
     ]);
 
@@ -430,7 +432,6 @@ if (status === TokenStatus.ACTIVE) {
       ...redisUpdateData,
     });
 
-    
     const roomName = `company:${companyId}:series:${tokenDetails.token_series.id}`;
     this.emitRoomRefresh(tokenId, roomName);
   }
@@ -462,13 +463,13 @@ if (status === TokenStatus.ACTIVE) {
     );
 
     let tokenDetails: any = null;
-    console.log("tokenId", tokenId)
+
     if (tokenId) {
       tokenDetails = await prisma.tokens.findUniqueOrThrow({
         where: {
           hash_id: tokenId,
           deleted_at: null,
-        }
+        },
       });
     }
 
@@ -494,135 +495,139 @@ if (status === TokenStatus.ACTIVE) {
             },
           },
         });
-        
 
-          if (tokenDetails) {
-            const timeDiff = this.getTimeDifference((tokenDetails.hold_out_time ? tokenDetails.hold_out_time : tokenDetails.token_calling_time).toISOString());
-            console.log('timeDiff =-=-=-=--=-==-=-==-=-', timeDiff)
-            const timeTaken = this.addTimeStrings(
-              tokenDetails.time_taken,
-              timeDiff
-            );
-            console.log('timeTaken =================', timeTaken)
-            await prisma.tokens.update({
-              where: {
-                id: tokenDetails.id,
-              },
-              data: {
-                token_status: !counterDetail.transfer_token_next_click ? TokenStatus.COMPLETED : TokenStatus.TRANSFER,
-                token_out_time: new Date(),
-                time_taken: timeTaken,
-                updated_at: new Date(),
-              },
-            });
+        if (tokenDetails) {
+          const timeDiff = this.getTimeDifference(
+            (tokenDetails.hold_out_time
+              ? tokenDetails.hold_out_time
+              : tokenDetails.token_calling_time
+            ).toISOString()
+          );
 
-            await tokenManager.updateToken(tokenDetails.hash_id, {
-              token_status: TokenStatus.COMPLETED,
-              token_out_time: new Date(),
-              time_taken: timeTaken,
-            });
-
-            const roomName = `company:${currentUser.company.id}:series:${tokenDetails.series_id}`;
-            this.emitRoomRefresh(tokenDetails.hash_id, roomName);
-          }
-
-          if (data.transfered_token_id) {
-            tokenDetails = await prisma.tokens.findUnique({
-              where: {
-                hash_id: data.transfered_token_id,
-                deleted_at: null,
-              },
-              select: {
-                id: true,
-                series_id: true,
-              },
-            });
-
-            if (!tokenDetails) {
-              throw new HttpBadRequestError(
-                'Transfered token not found!'
-              );
-
-            }
-
-            await prisma.tokens.update({
-              where: {
-                id: tokenDetails.id,
-              },
-              data: {
-                token_status: TokenStatus.ACTIVE,
-                token_calling_time: new Date(),
-                updated_at: new Date(),
-              },
-            });
-
-            await tokenManager.updateToken(data.transfered_token_id, {
-              token_status: TokenStatus.ACTIVE,
-              token_out_time: new Date(),
-              counter: {
-                id: currentUser.counter_details.id,
-                hash_id: currentUser.counter_details.hash_id,
-                counter_no: currentUser.counter_details.counter_no,
-              }
-            });
-
-            const roomName = `company:${currentUser.company.id}:series:${tokenDetails.series_id}`;
-            this.emitRoomRefresh(data.transfered_token_id, roomName);
-
-            const transferedCallingToken = await tokenManager.getTokenById(
-              data.transfered_token_id
-            );
-
-            return {
-              token: transferedCallingToken
-            }
-          }
-
-          const tokenData: ITokenData[] = await tokenManager.priorityTokens(data.filter_series_id);
-          if (tokenData.length === 0) {
-            return tokenData;
-          }
-
-          const priorityToken = tokenData[0];
-          let nextPriorityToken: ITokenData | null = null;
-          if (tokenData.length > 1) {
-            nextPriorityToken = tokenData[1];
-          }
-
-          const clonePriorityToken = structuredClone(priorityToken);
-          clonePriorityToken.token_status = TokenStatus.ACTIVE;
-          clonePriorityToken.token_calling_time = new Date();
-          clonePriorityToken.counter = {
-            id: currentUser.counter_details.id,
-            hash_id: currentUser.counter_details.hash_id,
-            counter_no: currentUser.counter_details.counter_no,
-          };
-
-          await tokenManager.updateToken(
-            clonePriorityToken.token_id,
-            clonePriorityToken
+          const timeTaken = this.addTimeStrings(
+            tokenDetails.time_taken,
+            timeDiff
           );
 
           await prisma.tokens.update({
             where: {
-              hash_id: priorityToken.token_id,
+              id: tokenDetails.id,
+            },
+            data: {
+              token_status: !counterDetail.transfer_token_next_click
+                ? TokenStatus.COMPLETED
+                : TokenStatus.TRANSFER,
+              token_out_time: new Date(),
+              time_taken: timeTaken,
+              updated_at: new Date(),
+            },
+          });
+
+          await tokenManager.updateToken(tokenDetails.hash_id, {
+            token_status: TokenStatus.COMPLETED,
+            token_out_time: new Date(),
+            time_taken: timeTaken,
+          });
+
+          const roomName = `company:${currentUser.company.id}:series:${tokenDetails.series_id}`;
+          this.emitRoomRefresh(tokenDetails.hash_id, roomName);
+        }
+
+        if (data.transfered_token_id) {
+          tokenDetails = await prisma.tokens.findUnique({
+            where: {
+              hash_id: data.transfered_token_id,
+              deleted_at: null,
+            },
+            select: {
+              id: true,
+              series_id: true,
+            },
+          });
+
+          if (!tokenDetails) {
+            throw new HttpBadRequestError('Transfered token not found!');
+          }
+
+          await prisma.tokens.update({
+            where: {
+              id: tokenDetails.id,
             },
             data: {
               token_status: TokenStatus.ACTIVE,
-              counter_number_id: currentUser.counter_details.id,
               token_calling_time: new Date(),
               updated_at: new Date(),
             },
           });
 
-          const roomName = `company:${priorityToken.company.id}:series:${!priorityToken ? tokenDetails.series_id : priorityToken.series.id}`;
-          this.emitRoomRefresh(clonePriorityToken.token_id, roomName);
+          await tokenManager.updateToken(data.transfered_token_id, {
+            token_status: TokenStatus.ACTIVE,
+            token_out_time: new Date(),
+            counter: {
+              id: currentUser.counter_details.id,
+              hash_id: currentUser.counter_details.hash_id,
+              counter_no: currentUser.counter_details.counter_no,
+            },
+          });
+
+          const roomName = `company:${currentUser.company.id}:series:${tokenDetails.series_id}`;
+          this.emitRoomRefresh(data.transfered_token_id, roomName);
+
+          const transferedCallingToken = await tokenManager.getTokenById(
+            data.transfered_token_id
+          );
 
           return {
-            token: clonePriorityToken,
+            token: transferedCallingToken,
           };
+        }
 
-      
+        const tokenData: ITokenData[] = await tokenManager.priorityTokens(
+          data.filter_series_id
+        );
+        if (tokenData.length === 0) {
+          return tokenData;
+        }
+
+        const priorityToken = tokenData[0];
+        let nextPriorityToken: ITokenData | null = null;
+        if (tokenData.length > 1) {
+          nextPriorityToken = tokenData[1];
+        }
+
+        const clonePriorityToken = structuredClone(priorityToken);
+        clonePriorityToken.token_status = TokenStatus.ACTIVE;
+        clonePriorityToken.token_calling_time = new Date();
+        clonePriorityToken.counter = {
+          id: currentUser.counter_details.id,
+          hash_id: currentUser.counter_details.hash_id,
+          counter_no: currentUser.counter_details.counter_no,
+        };
+
+        await tokenManager.updateToken(
+          clonePriorityToken.token_id,
+          clonePriorityToken
+        );
+
+        await prisma.tokens.update({
+          where: {
+            hash_id: priorityToken.token_id,
+          },
+          data: {
+            token_status: TokenStatus.ACTIVE,
+            counter_number_id: currentUser.counter_details.id,
+            token_calling_time: new Date(),
+            updated_at: new Date(),
+          },
+        });
+
+        const roomName = `company:${priorityToken.company.id}:series:${!priorityToken ? tokenDetails.series_id : priorityToken.series.id}`;
+        this.emitRoomRefresh(clonePriorityToken.token_id, roomName);
+
+        return {
+          token: clonePriorityToken,
+        };
+
         break;
 
       case 'TRANSFER':
@@ -646,10 +651,10 @@ if (status === TokenStatus.ACTIVE) {
             'Only ACTIVE tokens can be moved to PENDING!'
           );
         }
-        return await this.updateToken(
-          tokenDetails.hash_id,
-          TokenStatus.PENDING,
-        );
+        return await this.updateToken({
+          tokenId: tokenDetails.hash_id,
+          status: TokenStatus.PENDING,
+        });
       }
 
       case 'HOLD': {
@@ -657,20 +662,6 @@ if (status === TokenStatus.ACTIVE) {
           throw new HttpBadRequestError(
             'Only ACTIVE tokens can be moved to HOLD!'
           );
-        }
-        if(tokenId){
-          await prisma.tokens.update({
-            where: {
-              hash_id: tokenId,
-            },
-            data: {
-              token_status: TokenStatus.COMPLETED,
-              token_calling_time: new Date(),
-              time_taken: this.getTimeDifference(
-                tokenDetails.token_calling_time 
-              )
-            }
-          })
         }
 
         const tokenDetail = await tokenManager.getTokenById(
@@ -680,31 +671,34 @@ if (status === TokenStatus.ACTIVE) {
           throw new HttpBadRequestError('Token not found!');
         }
         const timeDiff = this.getTimeDifference(
-          tokenDetail.token_calling_time
+          tokenDetail.hold_out_time
+            ? tokenDetail.hold_out_time
+            : tokenDetail.token_calling_time
         );
+
         const timeTaken = this.addTimeStrings(tokenDetail.time_taken, timeDiff);
 
-        return await this.updateToken(
-          tokenDetails.hash_id,
-          TokenStatus.HOLD,
-          data.reason,
-          timeTaken
-        );
+        return await this.updateToken({
+          tokenId: tokenDetails.hash_id,
+          status: TokenStatus.HOLD,
+          reason: data.reason,
+          timeTaken,
+        });
       }
       case 'BREAK': {
-        if(!tokenDetails){
-          return null
-        } 
+        if (!tokenDetails) {
+          return null;
+        }
         if (tokenDetails.token_status !== TokenStatus.ACTIVE) {
           throw new HttpBadRequestError(
             'Only ACTIVE tokens can be marked as COMPLETED!'
           );
         }
 
-        return await this.updateToken(
-          tokenDetails.hash_id,
-          TokenStatus.COMPLETED,
-        );
+        return await this.updateToken({
+          tokenId: tokenDetails.hash_id,
+          status: TokenStatus.COMPLETED,
+        });
       }
 
       case 'WAITING': {
@@ -714,10 +708,10 @@ if (status === TokenStatus.ACTIVE) {
           );
         }
 
-        return await this.updateToken(
-          tokenDetails.hash_id,
-          TokenStatus.WAITING,
-        );
+        return await this.updateToken({
+          tokenId: tokenDetails.hash_id,
+          status: TokenStatus.WAITING,
+        });
       }
 
       case 'ACTIVE': {
@@ -727,10 +721,10 @@ if (status === TokenStatus.ACTIVE) {
           );
         }
 
-        return await this.updateToken(
-          tokenDetails.hash_id,
-          TokenStatus.ACTIVE,
-        );
+        return await this.updateToken({
+          tokenId: tokenDetails.hash_id,
+          status: TokenStatus.ACTIVE,
+        });
       }
 
       default:

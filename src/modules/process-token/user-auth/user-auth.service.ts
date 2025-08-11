@@ -8,7 +8,6 @@ import { UserResponseDto } from "./dto/current-user-auth.dto";
 
 export default class UserAuthService {
   private async fetchUserInfo(whereClause) {
-    // console.log('first', first)
     return await prisma.ht_users.findFirst({
       where: whereClause,
       include: {
@@ -23,8 +22,6 @@ export default class UserAuthService {
   }
 
   public mapUserResponse(user) {
-    console.log('user =========', user)
-    
     return {
       id: user.id,
       name: user.name,
