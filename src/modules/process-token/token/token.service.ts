@@ -309,7 +309,8 @@ export default class TokenService {
       hold_in_time: updated.hold_in_time,
     });
 
-    const roomName = `company:${updated.company_id}:series:${updated.series_id}`;
+    const roomName = `company:${updated.company.hash_id}:series:${updated.token_series.hash_id}`;
+    console.log("roomName !=> ", roomName)
     this.emitRoomRefresh(args.tokenId, roomName);
 
     return {
@@ -530,7 +531,7 @@ export default class TokenService {
       ...redisUpdateData,
     });
 
-    const roomName = `company:${companyId}:series:${tokenDetails.token_series.id}`;
+    const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.token_series.hash_id}`;
     this.emitRoomRefresh(tokenId, roomName);
   }
 
@@ -568,6 +569,9 @@ export default class TokenService {
           hash_id: tokenId,
           deleted_at: null,
         },
+        include:{
+          ht_series: true
+        }
       });
     }
 
@@ -662,7 +666,8 @@ export default class TokenService {
             time_taken: timeTaken,
           });
 
-          const roomName = `company:${currentUser.company.id}:series:${tokenDetails.series_id}`;
+          const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.ht_series.hash_id}`;
+          console.log('roomName ==>', roomName)
           this.emitRoomRefresh(tokenDetails.hash_id, roomName);
         }
 
@@ -675,6 +680,11 @@ export default class TokenService {
             select: {
               id: true,
               series_id: true,
+              ht_series: {
+                select :{
+                  hash_id: true
+                }
+              },
               created_at: true,
               updated_at: true,
             },
@@ -725,6 +735,8 @@ export default class TokenService {
             });
             return updateTokenData
           });
+
+          console.log('currentUser => ', currentUser)
       
 
           await tokenManager.updateToken(data.transfered_token_id, {
@@ -740,7 +752,8 @@ export default class TokenService {
             },
           });
 
-          const roomName = `company:${currentUser.company.id}:series:${tokenDetails.series_id}`;
+          const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.ht_series.hash_id}`;
+          console.log("roomName => ", roomName)
           this.emitRoomRefresh(data.transfered_token_id, roomName);
 
           const transferedCallingToken = await tokenManager.getTokenById(
@@ -816,7 +829,7 @@ export default class TokenService {
           });
         });
 
-        const roomName = `company:${priorityToken.company.id}:series:${!priorityToken ? tokenDetails.series_id : priorityToken.series.id}`;
+        const roomName = `company:${priorityToken.company.hash_id}:series:${!priorityToken ? tokenDetails.series_id : priorityToken.series.hash_id}`;
         this.emitRoomRefresh(clonePriorityToken.token_id, roomName);
 
         return {

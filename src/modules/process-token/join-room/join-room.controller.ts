@@ -23,6 +23,7 @@ export default class JoinRoomController {
       );
       for (const id of series.series_ids) {
         const roomId = `company:${String(series.company_id)}:series:${String(id)}`;
+        console.log('roomId => ', roomId)
 
         await this.socket.join(roomId);
       }
