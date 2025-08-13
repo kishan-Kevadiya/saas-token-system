@@ -99,7 +99,6 @@ class SocketService {
     // namespace.use(this.validationMiddleware);
 
     namespace.on('connection', (socket: Socket) => {
-      console.log(`Socket connected to namespace /${moduleType}: ${socket.id}`);
 
       socket.data.connectedAt = new Date();
       socket.data.lastActivity = new Date();
@@ -174,7 +173,6 @@ class SocketService {
     const originalOf = this.io.of.bind(this.io);
     this.io.of = (name: string) => {
       const namespace = originalOf(name);
-      console.log('Namespace accessed:', name);
 
       if (!SocketService.validNamespaces.has(name)) {
         console.warn(`Invalid namespace accessed: ${name}`);

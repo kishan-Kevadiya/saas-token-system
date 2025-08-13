@@ -21,12 +21,12 @@ export default class TokenController extends Api {
   ): Promise<void> => {
     try {
       const token = await this.tokenService.generateToken(req.body);
-      const roomName = `company:${token.company_id}:series:${token.series_id}`;
+      const roomName = `company:${token.company.id}:series:${token.series_id}`;
       socketService.emitToRoom(
         roomName,
         'refresh',
         {
-          token_id: token.hash_id,
+          token_id: token.token_id,
           message: 'add token',
           timestamp: new Date(),
         },

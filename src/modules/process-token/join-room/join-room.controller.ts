@@ -18,13 +18,12 @@ export default class JoinRoomController {
   ) => {
     try {
 
-      console.log('calllllllllllllllllllllll')
       const series = await this.joinRoomService.getCouterService(
         data.counter_id
       );
       for (const id of series.series_ids) {
         const roomId = `company:${String(series.company_id)}:series:${String(id)}`;
-        console.log("roomId -------------", roomId)
+        console.log('roomId => ', roomId)
 
         await this.socket.join(roomId);
       }
