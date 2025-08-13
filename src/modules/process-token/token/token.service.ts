@@ -310,7 +310,6 @@ export default class TokenService {
     });
 
     const roomName = `company:${updated.company.hash_id}:series:${updated.token_series.hash_id}`;
-    console.log("roomName !=> ", roomName)
     this.emitRoomRefresh(args.tokenId, roomName);
 
     return {
@@ -574,7 +573,6 @@ export default class TokenService {
         }
       });
     }
-console.log('tokenDetails ========= ', tokenDetails)
     switch (data.status) {
       case 'NEXT':
         const counterDetail = await prisma.ht_counter_filter.findUniqueOrThrow({
@@ -667,7 +665,6 @@ console.log('tokenDetails ========= ', tokenDetails)
           });
 
           const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.ht_series.hash_id}`;
-          console.log('roomName ==>', roomName)
           this.emitRoomRefresh(tokenDetails.hash_id, roomName);
         }
 
@@ -714,8 +711,6 @@ console.log('tokenDetails ========= ', tokenDetails)
               }
             });
 
-            console.log('updateTokenData - >', updateTokenData )
-
             await tx.token_logs.create({
               data: {
                 token_id: tokenDetails.id,
@@ -735,10 +730,6 @@ console.log('tokenDetails ========= ', tokenDetails)
             });
             return updateTokenData
           });
-
-          console.log('currentUser => ', currentUser)
-      
-
           await tokenManager.updateToken(data.transfered_token_id, {
             token_status: TokenStatus.ACTIVE,
             token_out_time: new Date(),
@@ -752,16 +743,12 @@ console.log('tokenDetails ========= ', tokenDetails)
             },
           });
 
-          console.log('tokenDetails ------ >', tokenDetails)
           const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.token_series.hash_id}`;
-          console.log("roomName => ", roomName)
           this.emitRoomRefresh(data.transfered_token_id, roomName);
 
           const transferedCallingToken = await tokenManager.getTokenById(
             data.transfered_token_id
           );
-
-          console.log('transferedCallingToken => ', transferedCallingToken)
 
           return {
             token: transferedCallingToken,
