@@ -1,4 +1,4 @@
-import { TokenStatus } from '@prisma/client';
+import { SeriesSelection, SeriesTokenGenerationType, TokenStatus } from '@prisma/client';
 import type { GenerateTokenCreateInputDto } from './dto/token.dto';
 import prisma from '@/lib/prisma';
 import { HttpBadRequestError, HttpNotFoundError } from '@/lib/errors';
@@ -13,7 +13,7 @@ export default class TokenService {
       company_id: companyId,
       series_id: seriesId,
       name: customerName,
-      mobile_number: mobileNumber,
+      mobile_number: mobileNumber, 
       form_data: formData,
       language_id: languageId,
     } = data;
@@ -32,6 +32,15 @@ export default class TokenService {
           saturday_off: true,
           sunday_off: true,
           app_hour: true,
+          ht_company_settings: {
+            where: {
+              deleted_at: null,
+              hash_id: companyId
+            },
+            select : {
+              series_token_generate_type: true
+            }
+          }
         },
       }),
 
@@ -44,6 +53,7 @@ export default class TokenService {
         select: {
           id: true,
           hash_id: true,
+          is_series_generate_type_apply: true,
           display_form: true,
           abbreviation: true,
           start_token: true,
@@ -75,10 +85,22 @@ export default class TokenService {
 
     await this.validateBusinessHours(company, series);
 
+    if (formData && Object.keys(formData).length > 0) {
+      await this.validateFormData(series.id, formData);
+    }
+
     const nextTokenNumber = await this.getNextTokenNumber(
       company.id,
-      series.id
+      {
+        id: series.id,
+        settingAppyle: series.is_series_generate_type_apply
+      }
     );
+
+    if(company.ht_company_settings[0]?.series_token_generate_type !== SeriesTokenGenerationType.RangeTokenGeneration) {
+      series.start_token = 1
+    }
+
 
     const tokenNumber = nextTokenNumber ?? series.start_token ?? 1;
 
@@ -123,6 +145,15 @@ export default class TokenService {
           time_taken: true
         },
       });
+
+      // await prisma.token_logs.create({
+      //   data: {
+      //     company_id: token.company_id,
+      //     token_id: token.id,
+      //     current_status: TokenStatus.WAITING,
+      //     time_taken: token.time_taken,
+      //   }
+      // })
 
       if (formData && Object.keys(formData).length > 0) {
         await prisma.ht_appointment_token_form_data.create({
@@ -176,19 +207,223 @@ export default class TokenService {
     const tokenManager = new CompanyTokenManager(company.hash_id);
     await tokenManager.addToken(inMemoryToken);
 
-    // const redisData = {
-    //   token_id: result.id,
-    //   series_id: series.id,
-    //   priority: series.priority,
-    //   company_id: company.id,
-    //   token_status: result.token_status,
-    // };
 
-    // await saveTokenToRedis(result.id, redisData);
+    const response = {
+      token_id: result.hash_id,
+      token_abbreviation: result.token_abbreviation,
+      series_id: series.hash_id,
+      token_number: result.token_number,
+      token_date: result.token_date,
+      priority: result.priority,
+      token_status: result.token_status,
+      token_series_number: result.token_series_number,
+      token_calling_time: null,
+      token_out_time: null,
+      language: {
+        id: language.hash_id,
+        name: language.name,
+        code: language.code
+      },
+      company: {
+        id: company.hash_id,
+        name: company.company_name
+      },
+      customer_name: result.customer_name,
+      customer_mobile_number: result.customer_mobile_number,
+      token_generate_time: result.created_at,
+      form_data: formData,
+      transfer_counter: null,
+      transfer_department: null,
+      time_taken: result.time_taken,
+      hold_in_time: null,
+      hold_out_time: null,
+      reason: null
 
-    // const results = await searchPendingTokensBySeries([2, 3]);
-    // console.log('Search Results:', JSON.stringify(results, null, 2));
-    return result;
+    }
+    return response;
+  }
+
+  private async validateFormData(seriesId: number, formData: any): Promise<void> {
+    const inputFields = await prisma.ht_series_input_fields.findMany({
+      where: {
+        series_id: seriesId,
+        deleted_at: null,
+      },
+      select: {
+        field_english_name: true,
+        field_hindi_name: true,
+        field_regional_name: true,
+        field_type: true,
+        is_required: true,
+      },
+    });
+
+    if (inputFields.length === 0) {
+      return;
+    }
+
+    const errors: string[] = [];
+
+    for (const field of inputFields) {
+      const isRequired = field.is_required === 1;
+      const fieldType = field.field_type.toLowerCase();
+
+      const possibleFieldNames = [
+        field.field_english_name,
+        field.field_hindi_name,
+        field.field_regional_name,
+      ].filter(name => name && name.trim() !== '');
+
+      let fieldValue: any = undefined;
+      let usedFieldName: string = '';
+
+      for (const fieldName of possibleFieldNames) {
+        if (formData.hasOwnProperty(fieldName)) {
+          fieldValue = formData[fieldName];
+          usedFieldName = fieldName;
+          break;
+        }
+      }
+
+      if (isRequired && (fieldValue === undefined || fieldValue === null || fieldValue === '')) {
+        const fieldDisplayName = field.field_english_name || field.field_hindi_name || field.field_regional_name;
+        errors.push(`Field '${fieldDisplayName}' is required`);
+        continue;
+      }
+
+      if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+        continue;
+      }
+
+      switch (fieldType) {
+        case 'text':
+        case 'textarea':
+          if (typeof fieldValue !== 'string') {
+            errors.push(`Field '${usedFieldName}' must be a string`);
+          }
+          break;
+
+        case 'number':
+          if (typeof fieldValue !== 'number' && !(!isNaN(Number(fieldValue)) && isFinite(Number(fieldValue)))) {
+            errors.push(`Field '${usedFieldName}' must be a valid number`);
+          }
+          break;
+
+        case 'email':
+          if (typeof fieldValue !== 'string' || !this.isValidEmail(fieldValue)) {
+            errors.push(`Field '${usedFieldName}' must be a valid email address`);
+          }
+          break;
+
+        case 'phone':
+        case 'mobile':
+          if (typeof fieldValue !== 'string' || !this.isValidPhone(fieldValue)) {
+            errors.push(`Field '${usedFieldName}' must be a valid phone number`);
+          }
+          break;
+
+        case 'date':
+          if (!this.isValidDate(fieldValue)) {
+            errors.push(`Field '${usedFieldName}' must be a valid date (YYYY-MM-DD format)`);
+          }
+          break;
+
+        case 'time':
+          if (typeof fieldValue !== 'string' || !this.isValidTime(fieldValue)) {
+            errors.push(`Field '${usedFieldName}' must be a valid time (HH:MM format)`);
+          }
+          break;
+
+        case 'datetime':
+          if (!this.isValidDateTime(fieldValue)) {
+            errors.push(`Field '${usedFieldName}' must be a valid datetime`);
+          }
+          break;
+
+        case 'select':
+        case 'dropdown':
+          if (typeof fieldValue !== 'string' && typeof fieldValue !== 'number') {
+            errors.push(`Field '${usedFieldName}' must be a valid selection`);
+          }
+          break;
+
+        case 'checkbox':
+          if (typeof fieldValue !== 'boolean' && fieldValue !== 0 && fieldValue !== 1 && fieldValue !== 'true' && fieldValue !== 'false') {
+            errors.push(`Field '${usedFieldName}' must be a valid boolean value`);
+          }
+          break;
+
+        case 'radio':
+          if (typeof fieldValue !== 'string' && typeof fieldValue !== 'number') {
+            errors.push(`Field '${usedFieldName}' must be a valid radio selection`);
+          }
+          break;
+
+        case 'file':
+        case 'image':
+          if (typeof fieldValue !== 'string') {
+            errors.push(`Field '${usedFieldName}' must be a valid file reference`);
+          }
+          break;
+
+        default:
+          if (isRequired && !fieldValue) {
+            errors.push(`Field '${usedFieldName}' is required`);
+          }
+          break;
+      }
+    }
+
+    const allowedFields: string[] = [];
+    inputFields.forEach(field => {
+      if (field.field_english_name) allowedFields.push(field.field_english_name);
+      if (field.field_hindi_name) allowedFields.push(field.field_hindi_name);
+      if (field.field_regional_name) allowedFields.push(field.field_regional_name);
+    });
+    
+    const providedFields = Object.keys(formData);
+    const unexpectedFields = providedFields.filter(field => !allowedFields.includes(field));
+    
+    if (unexpectedFields.length > 0) {
+      errors.push(`Unexpected fields provided: ${unexpectedFields.join(', ')}`);
+    }
+
+    if (errors.length > 0) {
+      throw new HttpBadRequestError(`Form validation failed: ${errors.join(', ')}`);
+    }
+  }
+
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  private isValidPhone(phone: string): boolean {
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+    return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
+  }
+
+  private isValidDate(date: any): boolean {
+    if (typeof date === 'string') {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) return false;
+      const parsedDate = new Date(date);
+      return parsedDate instanceof Date && !isNaN(parsedDate.getTime());
+    }
+    return date instanceof Date && !isNaN(date.getTime());
+  }
+
+  private isValidTime(time: string): boolean {
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    return timeRegex.test(time);
+  }
+
+  private isValidDateTime(datetime: any): boolean {
+    if (typeof datetime === 'string') {
+      const parsedDate = new Date(datetime);
+      return parsedDate instanceof Date && !isNaN(parsedDate.getTime());
+    }
+    return datetime instanceof Date && !isNaN(datetime.getTime());
   }
 
   private async validateBusinessHours(
@@ -234,7 +469,10 @@ export default class TokenService {
 
   private async getNextTokenNumber(
     companyId: number,
-    seriesId: number
+    series: {
+      id: number,
+      settingAppyle: number
+    }
   ): Promise<number | null> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -242,16 +480,52 @@ export default class TokenService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const lastToken = await prisma.tokens.findFirst({
-      where: {
+    const companySetting = await prisma.ht_company_settings.findFirst({
+      where : {
         company_id: companyId,
-        series_id: seriesId,
+        deleted_at: null,
+      },
+      select : {
+        id: true,
+        hash_id: true,
+        series_selection:true,
+        series_token_generate_type: true
+      }
+    })
+
+    let whereClause: any = {
+      company_id: companyId,
+
         token_date: {
           gte: today,
           lt: tomorrow,
         },
         deleted_at: null,
-      },
+    }
+    if(companySetting?.series_selection === SeriesSelection.MULTIPLE){
+      throw new Error("this is not implement")
+    }
+    if(companySetting?.series_token_generate_type !==  SeriesTokenGenerationType.SharedTokenSeries){
+      if(series.settingAppyle === 1){
+
+        whereClause.series_id = series.id
+      } else {
+        const seriesData = await prisma.ht_series.findMany({
+          where :{
+            comapany_id: companyId,
+            is_series_generate_type_apply: 1
+          }
+        })
+        const seriesIds = seriesData.map((data)=> (data.id))
+         whereClause.series_id = {
+          notIn : seriesIds
+        }
+        
+      }
+    }
+
+    const lastToken = await prisma.tokens.findFirst({
+      where: whereClause,
       orderBy: {
         token_number: 'desc',
       },

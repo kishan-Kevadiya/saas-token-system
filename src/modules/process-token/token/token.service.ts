@@ -83,6 +83,7 @@ export default class TokenService {
         token_status: true,
         updated_at: true,
         created_at: true,
+        token_calling_time: true,
         company: {
           select: {
             hash_id: true,
@@ -94,9 +95,23 @@ export default class TokenService {
     if (!currentToken) {
       throw new HttpBadRequestError('Token not found!');
     }
+    if( currentToken && currentToken.token_calling_time) {
+
+      const currentTime = new Date();
+      const tokenTime = new Date(currentToken.token_calling_time);
+      const delayMs = 10 * 1000;
+      const newTime = new Date(tokenTime.getTime() + delayMs);
+      if (currentTime < newTime) {
+        const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
+        throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
+      }
+  }
+
+    
 
     if (args.status === TokenStatus.HOLD) updateData.hold_in_time = now;
     if (args.status === TokenStatus.COMPLETED) updateData.token_out_time = now;
+    if (args.status === TokenStatus.PENDING) updateData.time_taken =  '00:00:00';
 
     if (args.status === TokenStatus.ACTIVE) {
       updateData.hold_out_time = now;
@@ -114,6 +129,16 @@ export default class TokenService {
       });
 
       if (existingActiveToken && existingActiveToken.token_calling_time) {
+        const currentTime = new Date();
+          const tokenTime = new Date(existingActiveToken.token_calling_time);
+          const delayMs = 10 * 1000;
+          const newTime = new Date(tokenTime.getTime() + delayMs);
+          if (currentTime < newTime) {
+            const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
+            throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
+          }
+
+
         const timeDiff = this.getTimeDifference(
           existingActiveToken.hold_out_time
             ? existingActiveToken.hold_out_time
@@ -364,6 +389,7 @@ export default class TokenService {
         select: {
           id: true,
           token_status: true,
+          token_calling_time: true,
           created_at: true,
           updated_at: true,
           token_series: {
@@ -389,6 +415,18 @@ export default class TokenService {
         })
         : Promise.resolve(null),
     ]);
+
+    if( tokenDetails && tokenDetails.token_calling_time) {
+
+      const currentTime = new Date();
+      const tokenTime = new Date(tokenDetails.token_calling_time);
+      const delayMs = 10 * 1000;
+      const newTime = new Date(tokenTime.getTime() + delayMs);
+      if (currentTime < newTime) {
+        const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
+        throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
+      }
+  }
 
     if (!counterSettings) {
       throw new Error('Counter settings not found.');
@@ -557,6 +595,17 @@ export default class TokenService {
         });
 
         if (tokenDetails) {
+
+          const currentTime = new Date();
+          const tokenTime = new Date(tokenDetails.token_calling_time);
+          const delayMs = 10 * 1000;
+          const newTime = new Date(tokenTime.getTime() + delayMs);
+          if (currentTime < newTime) {
+            const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
+            throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
+          }
+
+
           const timeDiff = this.getTimeDifference(
             (tokenDetails.hold_out_time
               ? tokenDetails.hold_out_time
@@ -636,8 +685,8 @@ export default class TokenService {
           }
 
 
-          await prisma.$transaction(async (tx) => {
-            await tx.tokens.update({
+         const updateTokenData = await prisma.$transaction(async (tx) => {
+          const updateTokenData =  await tx.tokens.update({
               where: {
                 id: tokenDetails.id,
               },
@@ -645,8 +694,17 @@ export default class TokenService {
                 token_status: TokenStatus.ACTIVE,
                 token_calling_time: new Date(),
                 updated_at: new Date(),
+                time_taken: "00:00:00"
               },
+              select: {
+                updated_at: true,
+                id: true,
+                time_taken: true,
+                token_calling_time: true
+              }
             });
+
+            console.log('updateTokenData - >', updateTokenData )
 
             await tx.token_logs.create({
               data: {
@@ -665,11 +723,16 @@ export default class TokenService {
                 created_by: currentUser.id,
               },
             });
+            return updateTokenData
           });
+      
 
           await tokenManager.updateToken(data.transfered_token_id, {
             token_status: TokenStatus.ACTIVE,
             token_out_time: new Date(),
+            time_taken :  '00:00:00',
+            updated_at : updateTokenData.updated_at,
+            token_calling_time : updateTokenData.token_calling_time,
             counter: {
               id: currentUser.counter_details.id,
               hash_id: currentUser.counter_details.hash_id,
@@ -683,6 +746,8 @@ export default class TokenService {
           const transferedCallingToken = await tokenManager.getTokenById(
             data.transfered_token_id
           );
+
+          console.log('transferedCallingToken => ', transferedCallingToken)
 
           return {
             token: transferedCallingToken,

@@ -16,12 +16,9 @@ export const socketAuthMiddleware = (authModuleType) => {
   return async (socket: Socket, next: NextFunction) => {
     try {
       const token = socket.handshake.auth.token ?? socket.handshake.query.token;
-      console.log('token', token);
       if (!token) {
         throw new Error('Authentication token missing');
       }
-
-      console.log(authModuleType);
       const user = await SocketUserValidators[authModuleType](token);
       socket.data.user = user;
 
