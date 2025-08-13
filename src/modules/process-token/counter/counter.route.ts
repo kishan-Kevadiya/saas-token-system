@@ -51,7 +51,7 @@ counter.get('/dropdown-list',validateProcessTokenAuthUser, controller.counterLis
  * @return 500 - Internal server error
  * @return 404 - Not found
  */
-counter.get('/:id', validateProcessTokenUser, controller.getCounterByCompanyId);
+counter.get('/', validateProcessTokenUser, controller.getCounterByCompanyId);
 
 
 

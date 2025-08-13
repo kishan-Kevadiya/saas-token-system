@@ -251,6 +251,8 @@ model ht_users {
   tokens tokens[] @relation("tokens_ht_users")
 
   ht_user_session_logs ht_user_session_logs[] @relation("ht_user_session_logs_ht_users")
+
+  token_logs token_logs[] @relation("token_logs_ht_users")
 }
 
 model ht_languages {
@@ -502,11 +504,20 @@ model ht_appointment_token_form_data {
   tokens  tokens     @relation("ht_appointment_token_form_data_tokens", fields: [token_id], references: [id])
 }
 
+enum ButtonName {
+  NEXT
+  HOLD
+  TRANSFER
+  BELL
+  BREAK
+  PENDING
+}
+
 model ht_buttons {
   id         Int    @id @default(autoincrement())
   hash_id    String @unique @default(uuid()) @db.VarChar(36)
   dept_id    Int    @db.Int
-  name       String @db.VarChar(255)
+  name       ButtonName
   company_id Int    @db.Int
 
   created_at DateTime  @default(now()) @db.DateTime(6)
@@ -515,6 +526,8 @@ model ht_buttons {
 
   ht_department ht_department? @relation("ht_buttons_ht_department", fields: [dept_id], references: [id])
   ht_company    ht_company?    @relation("ht_buttons_ht_company", fields: [company_id], references: [id])
+
+  @@unique([dept_id, name, company_id, deleted_at])
 }
 
 enum DisplayTransferToken {
@@ -656,20 +669,21 @@ enum PrintSettingKeys {
 }
 
 model token_logs {
-  id              Int         @id @default(autoincrement())
-  hash_id         String      @unique @default(uuid()) @db.VarChar(36)
-  counter_id      Int         @db.Int
-  company_id      Int         @db.Int
-  previous_status TokenStatus
+  id              Int          @id @default(autoincrement())
+  hash_id         String       @unique @default(uuid()) @db.VarChar(36)
+  counter_id      Int          @db.Int
+  company_id      Int          @db.Int
+  previous_status TokenStatus?
   current_status  TokenStatus
-  time_taken      String      @db.VarChar(50)
-  token_id        Int         @db.Int
-  created_at      DateTime    @default(now()) @db.DateTime(6)
-  created_by      Int         @db.Int
+  time_taken      String       @default("00:00:00") @db.VarChar(50)
+  token_id        Int          @db.Int
+  created_at      DateTime     @default(now()) @db.DateTime(6)
+  created_by      Int          @db.Int
 
   company ht_company        @relation("token_logs_ht_company", fields: [company_id], references: [id])
   counter ht_counter_filter @relation("token_logs_ht_counter_filter", fields: [counter_id], references: [id])
   token   tokens            @relation("token_logs_ht_tokens", fields: [token_id], references: [id])
+  created_by_user ht_users @relation("token_logs_ht_users", fields: [created_by], references: [id])
 }
 
 model print_settings {

@@ -1,3 +1,4 @@
+
 import { UserResponseDto } from '../user-auth/dto/current-user-auth.dto';
 import { CounterDropDownListDto } from './dto/counter-dropdown-list.dto';
 import { type CounterResponseBodyDto } from './dto/counter.dto';
@@ -7,6 +8,7 @@ export default class CounterService {
   public async getCounterByCompanyId(
     currentUser: any
   ): Promise<CounterResponseBodyDto> {
+    console.log('currentUser.id :>> ', currentUser.id);
     const counterResult = await prisma.ht_counter_filter.findMany({
       where: {
         company_id: currentUser.id,
@@ -18,6 +20,7 @@ export default class CounterService {
         counter_name: true,
         transfer_token_wise: true,
         transfer_token_method: true,
+        transfer_token_next_click: true,
       },
     });
     console.log('counterResult :>> ', counterResult);
@@ -28,11 +31,13 @@ export default class CounterService {
         counter_no: counter.counter_no,
         counter_name: counter.counter_name,
         transfer_token_wise: counter.transfer_token_wise,
-        transfer_token_method: counter.transfer_token_method
+        transfer_token_method: counter.transfer_token_method,
+        transfer_token_next_click: counter.transfer_token_next_click
+
       })),
     };
   }
-  public async counterListForDropDown(
+    public async counterListForDropDown(
     currentUser: UserResponseDto
   ): Promise<CounterDropDownListDto[]> {
     const counterDropDownList = await prisma.ht_counter_filter.findMany({

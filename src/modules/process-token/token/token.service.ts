@@ -4,8 +4,8 @@ import {
   TransferTokenWise,
 } from '@prisma/client';
 import { type UserResponseDto } from '../user-auth/dto/current-user-auth.dto';
-import { type tokenStatusUpdateDto } from './dto/token-update-status-input.dto';
-import { type tokenDto } from './dto/token.dto';
+import { type TokenStatusUpdateDto } from './dto/token-update-status-input.dto';
+import { type TokenDto } from './dto/token.dto';
 import socketService from '@/socket/socket.service';
 import {
   CompanyTokenManager,
@@ -62,6 +62,7 @@ export default class TokenService {
   private async updateToken(args: {
     tokenId: string;
     status: TokenStatus;
+    currentUser: UserResponseDto;
     reason?: string;
     timeTaken?: string;
   }): Promise<any> {
@@ -73,30 +74,33 @@ export default class TokenService {
       ...(args.timeTaken && { time_taken: args.timeTaken }),
     };
 
+    const currentToken = await prisma.tokens.findUnique({
+      where: { hash_id: args.tokenId },
+      select: {
+        company_id: true,
+        counter_number_id: true,
+        hash_id: true,
+        token_status: true,
+        updated_at: true,
+        created_at: true,
+        company: {
+          select: {
+            hash_id: true,
+          },
+        },
+      },
+    });
+
+    if (!currentToken) {
+      throw new HttpBadRequestError('Token not found!');
+    }
+
     if (args.status === TokenStatus.HOLD) updateData.hold_in_time = now;
     if (args.status === TokenStatus.COMPLETED) updateData.token_out_time = now;
 
     if (args.status === TokenStatus.ACTIVE) {
       updateData.hold_out_time = now;
       updateData.token_calling_time = now;
-
-      const currentToken = await prisma.tokens.findUnique({
-        where: { hash_id: args.tokenId },
-        select: {
-          company_id: true,
-          counter_number_id: true,
-          hash_id: true,
-          company: {
-            select: {
-              hash_id: true,
-            },
-          },
-        },
-      });
-
-      if (!currentToken) {
-        throw new HttpBadRequestError('Token not found!');
-      }
 
       const existingActiveToken = await prisma.tokens.findFirst({
         where: {
@@ -122,14 +126,40 @@ export default class TokenService {
           timeDiff
         );
 
-        const previousToken = await prisma.tokens.update({
-          where: { hash_id: existingActiveToken.hash_id },
-          data: {
-            token_status: TokenStatus.COMPLETED,
-            token_out_time: now,
-            time_taken: timeTaken,
-            updated_at: now,
-          },
+        const timeTakenForCurrentToken = this.getTimeDifference(
+          existingActiveToken.updated_at
+            ? existingActiveToken.updated_at
+            : existingActiveToken.created_at,
+          now.toISOString()
+        );
+
+        const previousToken = await prisma.$transaction(async (tx) => {
+          const previousToken = await tx.tokens.update({
+            where: {
+              hash_id: existingActiveToken.hash_id,
+            },
+            data: {
+              token_status: TokenStatus.COMPLETED,
+              token_out_time: now,
+              time_taken: timeTaken,
+              updated_at: now,
+            },
+          });
+
+          await tx.token_logs.create({
+            data: {
+              token_id: previousToken.id,
+              previous_status: TokenStatus.ACTIVE,
+              current_status: TokenStatus.COMPLETED,
+              counter_id: args.currentUser.counter_details.id,
+              company_id: args.currentUser.company.id,
+              time_taken: timeTakenForCurrentToken,
+              created_at: now,
+              created_by: args.currentUser.id,
+            },
+          });
+
+          return previousToken;
         });
 
         const tokenManager = new CompanyTokenManager(
@@ -143,71 +173,105 @@ export default class TokenService {
         });
       }
     }
-    const updated = await prisma.tokens.update({
-      where: { hash_id: args.tokenId },
-      data: updateData,
-      select: {
-        hash_id: true,
-        id: true,
-        token_series: {
-          select: { hash_id: true, id: true },
-        },
-        token_abbreviation: true,
-        token_number: true,
-        token_date: true,
-        priority: true,
-        counter: {
-          select: {
-            id: true,
-            hash_id: true,
-            counter_no: true,
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedToken = await tx.tokens.update({
+        where: { hash_id: args.tokenId },
+        data: updateData,
+        select: {
+          hash_id: true,
+          id: true,
+          token_abbreviation: true,
+          token_number: true,
+          token_transfer_counter_id: true,
+          token_date: true,
+          priority: true,
+          counter: {
+            select: {
+              hash_id: true,
+              counter_no: true,
+              counter_name: true,
+            },
           },
-        },
-        token_series_number: true,
-        ht_language: {
-          select: {
-            id: true,
-            name: true,
-            hash_id: true,
-            code: true,
+          token_series_number: true,
+          ht_language: {
+            select: {
+              name: true,
+              hash_id: true,
+            },
           },
-        },
-        customer_mobile_number: true,
-        customer_name: true,
-        generate_token_time: true,
-        ht_appointment_token_form_data: {
-          select: {
-            form_data: true,
+          customer_mobile_number: true,
+          customer_name: true,
+          generate_token_time: true,
+          ht_appointment_token_form_data: {
+            select: {
+              form_data: true,
+            },
           },
-        },
-        token_status: true,
-        company_id: true,
-        counter_number_id: true,
-        company: {
-          select: {
-            hash_id: true,
-            id: true,
-            company_name: true,
+          token_status: true,
+          company_id: true,
+          company: {
+            select: {
+              hash_id: true,
+              company_name: true,
+            },
           },
-        },
-        time_taken: true,
-        series_id: true,
-        token_calling_time: true,
-        token_out_time: true,
-        hold_in_time: true,
-        hold_out_time: true,
-        user_id: true,
-        reason: true,
-        token_transfer_department: {
-          select: {
-            id: true,
-            hash_id: true,
-            dept_english_name: true,
-            dept_regional_name: true,
+          time_taken: true,
+          series_id: true,
+          token_calling_time: true,
+          token_out_time: true,
+          bell_ring: true,
+          bell_time: true,
+          hold_in_time: true,
+          hold_out_time: true,
+          reason: true,
+          ht_series: {
+            select: {
+              hash_id: true,
+              series_english_name: true,
+              series_hindi_name: true,
+              series_regional_name: true,
+              abbreviation: true,
+            },
           },
+          token_series: {
+            select: {
+              hash_id: true,
+              series_english_name: true,
+              series_hindi_name: true,
+              series_regional_name: true,
+              abbreviation: true,
+            },
+          },
+          token_transfer_department: {
+            select: {
+              hash_id: true,
+              dept_hindi_name: true,
+              dept_english_name: true,
+              dept_regional_name: true,
+            },
+          },
+          ht_user: { select: { name: true, hash_id: true } },
         },
-        ht_user: { select: { name: true, id: true, hash_id: true } },
-      },
+      });
+
+      await tx.token_logs.create({
+        data: {
+          token_id: updatedToken.id,
+          previous_status: currentToken.token_status,
+          current_status: updatedToken.token_status,
+          counter_id: args.currentUser.counter_details.id,
+          company_id: updatedToken.company_id,
+          time_taken: this.getTimeDifference(
+            currentToken.updated_at
+              ? currentToken.updated_at
+              : currentToken.created_at,
+            new Date().toISOString()
+          ),
+          created_by: args.currentUser.id,
+        },
+      });
+
+      return updatedToken;
     });
 
     const tokenManager = new CompanyTokenManager(updated.company.hash_id);
@@ -224,56 +288,29 @@ export default class TokenService {
     this.emitRoomRefresh(args.tokenId, roomName);
 
     return {
-      id: updated.hash_id,
-      token_status: updated.token_status,
-      reason: updated.reason,
-      company_id: updated.company_id,
-      counter_no: updated.counter_number_id,
-      user_id: updated.user_id,
-      user_name: updated.ht_user?.name ?? null,
-      hold_in_time: updated.hold_in_time,
-      hold_out_time: updated.hold_out_time,
-      token_calling_time: updated.token_calling_time,
-      token_out_time: updated.token_out_time,
-      time_token: updated.time_taken,
-      token_series: {
-        id: updated.token_series.id,
-        hash_id: updated.token_series.hash_id,
-      },
-      company: {
-        id: updated.company.id,
-        hash_id: updated.company.hash_id,
-        company_name: updated.company.company_name,
-      },
-      counter: updated.counter
-        ? {
-            id: updated.counter.id,
-            hash_id: updated.counter.hash_id,
-            counter_no: updated.counter.counter_no,
-          }
-        : null,
-      token_series_number: updated.token_series_number,
-      priority: updated.priority,
       token_id: updated.hash_id,
+      token_status: updated.token_status,
+      token_generate_time: updated.generate_token_time,
       token_abbreviation: updated.token_abbreviation,
       token_number: updated.token_number,
       token_date: updated.token_date,
+      token_calling_time: updated.token_calling_time,
+      token_out_time: updated.token_out_time,
+      priority: updated.priority,
+      company_id: updated.company.hash_id,
+      language_id: updated.ht_language.hash_id,
+      series_id: updated.token_series.hash_id,
+      user_id: updated.ht_user ? updated.ht_user.hash_id : null,
+      counter_id: updated.counter ? updated.counter.hash_id : null,
+      transfer_counter_id: updated.counter ? updated.counter.hash_id : null,
+      transfer_department_id: updated.token_transfer_department ? updated.token_transfer_department.hash_id : null,
+      token_series_number: updated.token_series_number,
       customer_name: updated.customer_name,
       customer_mobile_number: updated.customer_mobile_number,
-      generate_token_time: updated.generate_token_time,
-      language: {
-        id: updated.ht_language.id,
-        name: updated.ht_language.name,
-        hash_id: updated.ht_language.hash_id,
-        code: updated.ht_language.code,
-      },
-      department: {
-        id: updated.token_transfer_department?.id,
-        hash_id: updated.token_transfer_department?.hash_id,
-        name:
-          updated.token_transfer_department?.dept_english_name ??
-          updated.token_transfer_department?.dept_regional_name,
-      },
+      hold_in_time: updated.hold_in_time,
+      hold_out_time: updated.hold_out_time,
+      time_taken: updated.time_taken,
+      form_data: updated.ht_appointment_token_form_data?.[0]?.form_data ?? null
     };
   }
 
@@ -326,6 +363,9 @@ export default class TokenService {
         where: { hash_id: tokenId, deleted_at: null },
         select: {
           id: true,
+          token_status: true,
+          created_at: true,
+          updated_at: true,
           token_series: {
             select: { hash_id: true, id: true },
           },
@@ -333,20 +373,20 @@ export default class TokenService {
       }),
       transferDepartmentId
         ? prisma.ht_department.findUniqueOrThrow({
-            where: { hash_id: transferDepartmentId, deleted_at: null },
-            select: {
-              id: true,
-              hash_id: true,
-              dept_english_name: true,
-              dept_regional_name: true,
-            },
-          })
+          where: { hash_id: transferDepartmentId, deleted_at: null },
+          select: {
+            id: true,
+            hash_id: true,
+            dept_english_name: true,
+            dept_regional_name: true,
+          },
+        })
         : Promise.resolve(null),
       transferCounterId
         ? prisma.ht_counter_filter.findUniqueOrThrow({
-            where: { hash_id: transferCounterId, deleted_at: null },
-            select: { id: true, hash_id: true, counter_no: true },
-          })
+          where: { hash_id: transferCounterId, deleted_at: null },
+          select: { id: true, hash_id: true, counter_no: true },
+        })
         : Promise.resolve(null),
     ]);
 
@@ -420,11 +460,31 @@ export default class TokenService {
       throw new Error('Invalid transfer_token_wise setting.');
     }
 
-    await prisma.tokens.update({
-      where: { id: tokenDetails.id },
-      data: {
-        ...tokenUpdateData,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.tokens.update({
+        where: { id: tokenDetails.id },
+        data: {
+          ...tokenUpdateData,
+        },
+      });
+
+      await tx.token_logs.create({
+        data: {
+          token_id: tokenDetails.id,
+          previous_status: tokenDetails.token_status,
+          current_status: TokenStatus.TRANSFER,
+          counter_id: counterId,
+          company_id: companyId,
+          time_taken: this.getTimeDifference(
+            tokenDetails.updated_at
+              ? tokenDetails.updated_at
+              : tokenDetails.created_at,
+            new Date().toISOString()
+          ),
+          created_at: new Date(),
+          created_by: currentUser.id,
+        },
+      });
     });
 
     await tokenManager.updateToken(tokenId, {
@@ -453,10 +513,10 @@ export default class TokenService {
   }
 
   public async updateTokenStatus(
-    data: tokenStatusUpdateDto,
+    data: TokenStatusUpdateDto,
     currentUser: UserResponseDto,
     tokenId?: string
-  ): Promise<tokenDto | any> {
+  ): Promise<TokenDto | any> {
     const tokenManager = new CompanyTokenManager(
       currentUser.company.hash_id,
       currentUser.counter_details.hash_id
@@ -509,18 +569,42 @@ export default class TokenService {
             timeDiff
           );
 
-          await prisma.tokens.update({
-            where: {
-              id: tokenDetails.id,
-            },
-            data: {
-              token_status: !counterDetail.transfer_token_next_click
-                ? TokenStatus.COMPLETED
-                : TokenStatus.TRANSFER,
-              token_out_time: new Date(),
-              time_taken: timeTaken,
-              updated_at: new Date(),
-            },
+          const timeTakenForNextToken = this.getTimeDifference(
+            tokenDetails.updated_at
+              ? tokenDetails.updated_at
+              : tokenDetails.created_at,
+            new Date().toISOString()
+          );
+
+          await prisma.$transaction(async (tx) => {
+            await tx.tokens.update({
+              where: {
+                id: tokenDetails.id,
+              },
+              data: {
+                token_status: !counterDetail.transfer_token_next_click
+                  ? TokenStatus.COMPLETED
+                  : TokenStatus.TRANSFER,
+                token_out_time: new Date(),
+                time_taken: timeTaken,
+                updated_at: new Date(),
+              },
+            });
+
+            await tx.token_logs.create({
+              data: {
+                token_id: tokenDetails.id,
+                previous_status: tokenDetails.token_status,
+                current_status: !counterDetail.transfer_token_next_click
+                  ? TokenStatus.COMPLETED
+                  : TokenStatus.TRANSFER,
+                counter_id: currentUser.counter_details.id,
+                company_id: currentUser.company.id,
+                time_taken: timeTakenForNextToken,
+                created_at: new Date(),
+                created_by: currentUser.id,
+              },
+            });
           });
 
           await tokenManager.updateToken(tokenDetails.hash_id, {
@@ -542,6 +626,8 @@ export default class TokenService {
             select: {
               id: true,
               series_id: true,
+              created_at: true,
+              updated_at: true,
             },
           });
 
@@ -549,15 +635,36 @@ export default class TokenService {
             throw new HttpBadRequestError('Transfered token not found!');
           }
 
-          await prisma.tokens.update({
-            where: {
-              id: tokenDetails.id,
-            },
-            data: {
-              token_status: TokenStatus.ACTIVE,
-              token_calling_time: new Date(),
-              updated_at: new Date(),
-            },
+
+          await prisma.$transaction(async (tx) => {
+            await tx.tokens.update({
+              where: {
+                id: tokenDetails.id,
+              },
+              data: {
+                token_status: TokenStatus.ACTIVE,
+                token_calling_time: new Date(),
+                updated_at: new Date(),
+              },
+            });
+
+            await tx.token_logs.create({
+              data: {
+                token_id: tokenDetails.id,
+                previous_status: TokenStatus.ACTIVE,
+                current_status: TokenStatus.TRANSFER,
+                counter_id: currentUser.counter_details.id,
+                company_id: currentUser.company.id,
+                time_taken: this.getTimeDifference(
+                  tokenDetails.updated_at
+                    ? tokenDetails.updated_at
+                    : tokenDetails.created_at,
+                  new Date().toISOString()
+                ),
+                created_at: new Date(),
+                created_by: currentUser.id,
+              },
+            });
           });
 
           await tokenManager.updateToken(data.transfered_token_id, {
@@ -603,22 +710,45 @@ export default class TokenService {
           hash_id: currentUser.counter_details.hash_id,
           counter_no: currentUser.counter_details.counter_no,
         };
+        clonePriorityToken.updated_at = new Date();
 
         await tokenManager.updateToken(
           clonePriorityToken.token_id,
           clonePriorityToken
         );
 
-        await prisma.tokens.update({
-          where: {
-            hash_id: priorityToken.token_id,
-          },
-          data: {
-            token_status: TokenStatus.ACTIVE,
-            counter_number_id: currentUser.counter_details.id,
-            token_calling_time: new Date(),
-            updated_at: new Date(),
-          },
+        const timeTakenForNextToken = this.getTimeDifference(
+          priorityToken.updated_at
+            ? priorityToken.updated_at
+            : priorityToken.created_at,
+          new Date().toISOString()
+        );
+
+        await prisma.$transaction(async (tx) => {
+          const updatedToken = await tx.tokens.update({
+            where: {
+              hash_id: priorityToken.token_id,
+            },
+            data: {
+              token_status: TokenStatus.ACTIVE,
+              counter_number_id: currentUser.counter_details.id,
+              token_calling_time: new Date(),
+              updated_at: new Date(),
+            },
+          });
+
+          await tx.token_logs.create({
+            data: {
+              token_id: updatedToken.id,
+              previous_status: priorityToken.token_status,
+              current_status: TokenStatus.ACTIVE,
+              counter_id: currentUser.counter_details.id,
+              company_id: currentUser.company.id,
+              time_taken: timeTakenForNextToken,
+              created_at: new Date(),
+              created_by: currentUser.id,
+            },
+          });
         });
 
         const roomName = `company:${priorityToken.company.id}:series:${!priorityToken ? tokenDetails.series_id : priorityToken.series.id}`;
@@ -654,6 +784,7 @@ export default class TokenService {
         return await this.updateToken({
           tokenId: tokenDetails.hash_id,
           status: TokenStatus.PENDING,
+          currentUser,
         });
       }
 
@@ -681,10 +812,12 @@ export default class TokenService {
         return await this.updateToken({
           tokenId: tokenDetails.hash_id,
           status: TokenStatus.HOLD,
+          currentUser,
           reason: data.reason,
           timeTaken,
         });
       }
+
       case 'BREAK': {
         if (!tokenDetails) {
           return null;
@@ -698,6 +831,7 @@ export default class TokenService {
         return await this.updateToken({
           tokenId: tokenDetails.hash_id,
           status: TokenStatus.COMPLETED,
+          currentUser,
         });
       }
 
@@ -711,6 +845,7 @@ export default class TokenService {
         return await this.updateToken({
           tokenId: tokenDetails.hash_id,
           status: TokenStatus.WAITING,
+          currentUser,
         });
       }
 
@@ -724,6 +859,7 @@ export default class TokenService {
         return await this.updateToken({
           tokenId: tokenDetails.hash_id,
           status: TokenStatus.ACTIVE,
+          currentUser,
         });
       }
 
