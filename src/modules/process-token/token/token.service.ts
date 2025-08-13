@@ -570,11 +570,11 @@ export default class TokenService {
           deleted_at: null,
         },
         include:{
-          ht_series: true
+          token_series: true
         }
       });
     }
-
+console.log('tokenDetails ========= ', tokenDetails)
     switch (data.status) {
       case 'NEXT':
         const counterDetail = await prisma.ht_counter_filter.findUniqueOrThrow({
@@ -680,9 +680,9 @@ export default class TokenService {
             select: {
               id: true,
               series_id: true,
-              ht_series: {
-                select :{
-                  hash_id: true
+              token_series:{
+                select: {
+                  hash_id: true,
                 }
               },
               created_at: true,
@@ -752,7 +752,8 @@ export default class TokenService {
             },
           });
 
-          const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.ht_series.hash_id}`;
+          console.log('tokenDetails ------ >', tokenDetails)
+          const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.token_series.hash_id}`;
           console.log("roomName => ", roomName)
           this.emitRoomRefresh(data.transfered_token_id, roomName);
 
