@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import RequestValidator from '@/middlewares/request-validator';
 import TokenController from './token.controller';
-import { tokenStatusUpdateDto } from './dto/token-update-status-input.dto';
+import { TokenStatusUpdateDto } from './dto/token-update-status-input.dto';
 
 const token: Router = Router();
 const controller = new TokenController();
@@ -35,7 +35,7 @@ const controller = new TokenController();
  * @return 500 - Internal server error
  */
 token.post('/',
-  RequestValidator.validate(tokenStatusUpdateDto),
+  RequestValidator.validate(TokenStatusUpdateDto),
   controller.updateTokenStatus
 );
 

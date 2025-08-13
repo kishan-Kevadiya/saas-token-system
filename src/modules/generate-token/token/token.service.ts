@@ -168,7 +168,8 @@ export default class TokenService {
       form_data: formData,
       transfer_counter: null,
       transfer_department: null,
-      time_taken: result.time_taken
+      time_taken: result.time_taken,
+      created_at: result.created_at
     };
 
     console.log("inMemoryToken", inMemoryToken)

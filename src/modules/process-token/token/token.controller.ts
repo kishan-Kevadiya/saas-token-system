@@ -3,9 +3,7 @@ import TokenService from './token.service';
 import { CustomResponse } from '@/types/common.type';
 import { Request, NextFunction } from 'express';
 import { HttpStatusCode } from 'axios';
-import { tokenDto } from './dto/token.dto';
-import socketService from '@/socket/socket.service';
-import { SocketNamespace } from '@/enums/socket.enum';
+import { TokenDto } from './dto/token.dto';
 
 export default class TokenController extends Api {
   private readonly tokenService: TokenService;
@@ -17,7 +15,7 @@ export default class TokenController extends Api {
 
   public updateTokenStatus = async (
     req: Request,
-    res: CustomResponse<tokenDto>,
+    res: CustomResponse<TokenDto>,
     _next: NextFunction
   ) => {
     try {
@@ -26,14 +24,6 @@ export default class TokenController extends Api {
         res.locals.currentUser,
         req.body.token_id as string,
       );
-
-      const roomName = ''
-
-      // socketService.emitToRoom(roomName, 'refresh', {
-      //       token_id: req.body.token_id,
-      //       message,
-           
-      //     },`/${SocketNamespace.PROCESS_TOKEN}`);
 
       this.send(
         res,

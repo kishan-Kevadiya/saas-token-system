@@ -67,6 +67,8 @@ export interface ITokenData {
   time_taken: string
   hold_out_time?: Date | null;
   hold_in_time?: Date | null;
+  created_at: Date;
+  updated_at?: Date | null;
 }
 
 

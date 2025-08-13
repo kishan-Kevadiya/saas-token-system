@@ -1,6 +1,7 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-export class tokenStatusUpdateDto {
+export class TokenStatusUpdateDto {
+  @IsNotEmpty()
   @IsString()
   status: string;
 
@@ -18,7 +19,7 @@ export class tokenStatusUpdateDto {
 
   @IsOptional()
   @IsString()
-  filter_series_id?: string
+  filter_series_id?: string;
 
   @IsOptional()
   @IsString()
