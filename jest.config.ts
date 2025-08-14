@@ -7,6 +7,9 @@ const config: Config = {
   testRegex,
   verbose: true,
   notify: true,
+  collectCoverage: true,
+  coverageDirectory: 'coverage',
+  coverageReporters: ['json', 'lcov', 'text'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },

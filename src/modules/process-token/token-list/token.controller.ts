@@ -32,8 +32,8 @@ export default class TokenController extends Api {
         HttpStatusCode.Ok,
         'Token statistics retrieved successfully'
       );
-    } catch (error) {
-      next(error);
+    } catch (e) {
+      next(e);
     }
   };
 }

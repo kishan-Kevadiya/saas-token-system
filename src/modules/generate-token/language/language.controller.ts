@@ -29,8 +29,8 @@ export default class LanguageController extends Api {
         HttpStatusCode.Ok,
         'Languages retrieved successfully'
       );
-    } catch (error) {
-      next(error);
+    } catch (e) {
+      next(e);
     }
   };
 }

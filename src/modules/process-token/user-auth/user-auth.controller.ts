@@ -1,10 +1,10 @@
-import Api from "@/lib/api";
-import UserAuthService from "./user-auth.service";
-import { CustomResponse } from "@/types/common.type";
-import { CurrentUserDto } from "../company-auth/dto/current-user.dto";
-import { NextFunction, Request } from "express";
-import { HttpStatusCode } from "axios";
-import { CompanyTokenManager } from "@/utils/redis-token-manager";
+import Api from '@/lib/api';
+import UserAuthService from './user-auth.service';
+import { CustomResponse } from '@/types/common.type';
+import { CurrentUserDto } from '../company-auth/dto/current-user.dto';
+import { NextFunction, Request } from 'express';
+import { HttpStatusCode } from 'axios';
+import { CompanyTokenManager } from '@/utils/redis-token-manager';
 
 export default class UserAuthController extends Api {
   private readonly userAuthService: UserAuthService;
@@ -20,11 +20,13 @@ export default class UserAuthController extends Api {
     next: NextFunction
   ) => {
     try {
-      const user = await this.userAuthService.login(req.body, res.locals.currentUser);
+      const user = await this.userAuthService.login(
+        req.body,
+        res.locals.currentUser
+      );
       this.send(res, user, HttpStatusCode.Ok, 'Login successfully');
     } catch (e) {
-      console.log('e', e)
-      // next(e)
+      next(e);
     }
   };
 
@@ -35,15 +37,11 @@ export default class UserAuthController extends Api {
   ) => {
     try {
       const currentUser = res.locals.currentUser;
-      const userResponse = this.userAuthService.mapUserResponse(
-        currentUser,
-      );
-
-      // console.log("currentUser----------", userResponse)
+      const userResponse = this.userAuthService.mapUserResponse(currentUser);
 
       return this.send(res, userResponse, HttpStatusCode.Ok);
     } catch (e) {
-      next(e)
+      next(e);
     }
   };
 
@@ -57,7 +55,7 @@ export default class UserAuthController extends Api {
       await this.userAuthService.logout(currentUser);
       return this.send(res, null, HttpStatusCode.Ok, 'Logout successful');
     } catch (e) {
-      next(e)
+      next(e);
     }
   };
 }

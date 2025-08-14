@@ -20,7 +20,6 @@ export default class CounterController extends Api {
     _next: NextFunction
   ) => {
     try {
-      console.log('res.locals.currentUser :>> ', res.locals.currentUser);
       const counter = await this.counterService.getCounterByCompanyId(
         res.locals.currentUser
       );
@@ -31,43 +30,28 @@ export default class CounterController extends Api {
         'Counter data retrieved successfully.'
       );
     } catch (e) {
-      console.log('e :>> ', e);
-      if (e.message === 'No ht_company found') {
-        this.send(res, null, HttpStatusCode.NotFound, 'Company not found!');
-      } else {
-        this.send(
-          res,
-          null,
-          HttpStatusCode.InternalServerError,
-          'An unexpected error occurred'
-        );
-      }
+      _next(e);
     }
   };
 
-   public counterListForDropDown = async (
-      req: Request,
-      res: CustomResponse<CounterDropDownListDto[]>,
-      _next: NextFunction
-    ) => {
-      try {
-        const counterDropDownList =
-          await this.counterService.counterListForDropDown(
-            res.locals.currentUser
-          );
-        this.send(
-          res,
-          counterDropDownList,
-          HttpStatusCode.Ok,
-          'Counter dropdown list get successfully.'
+  public counterListForDropDown = async (
+    req: Request,
+    res: CustomResponse<CounterDropDownListDto[]>,
+    _next: NextFunction
+  ) => {
+    try {
+      const counterDropDownList =
+        await this.counterService.counterListForDropDown(
+          res.locals.currentUser
         );
-      } catch (e) {
-        this.send(
-          res,
-          null,
-          HttpStatusCode.InternalServerError,
-          'An unexpected error occurred',
-          );
-      }
-    };
+      this.send(
+        res,
+        counterDropDownList,
+        HttpStatusCode.Ok,
+        'Counter dropdown list get successfully.'
+      );
+    } catch (e) {
+      _next(e);
+    }
+  };
 }

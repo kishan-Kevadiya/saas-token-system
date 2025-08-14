@@ -61,6 +61,7 @@ describe('DepartmentService', () => {
     expect(prisma.ht_department.findMany).toHaveBeenCalledWith({
       where: {
         status: 1,
+        company_id: 101
       },
       select: {
         hash_id: true,

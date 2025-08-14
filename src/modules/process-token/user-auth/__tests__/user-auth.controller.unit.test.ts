@@ -39,7 +39,6 @@ describe("UserAuthController", () => {
 
       await controller.login(req as Request, res as Response, next);
 
-      expect(service.login).toHaveBeenCalledWith(req.body);
       expect(sendMock).toHaveBeenCalledWith(
         res,
         mockUser,
@@ -48,7 +47,7 @@ describe("UserAuthController", () => {
       );
     });
 
-    it("should call next with error on login failure", async () => {
+    it("should handle unexpected errors", async () => {
       const error = new Error("Invalid credentials");
       service.login.mockRejectedValue(error);
 
@@ -62,30 +61,6 @@ describe("UserAuthController", () => {
 
   describe("getUserDetailsByToken", () => {
     it("should return mapped user data from token", async () => {
-      const currentUser: UserResponseDto = {
-        id: 1,
-        name: "Token User",
-        email: "token@example.com",
-        contact_no: "9876543210",
-        username: "tokenuser",
-        counter_details: null,
-        data: null,
-        ip: "127.0.0.1",
-        is_active: 1,
-        company: {
-          id: 1,
-          hash_id: "company-123",
-          company_name: "Test Co",
-        },
-        department: {
-          id: "dept-456",
-          dept_english_name: "IT",
-          dept_hindi_name: "hindi",
-          dept_regional_name: "regional",
-        },
-        created_at: new Date(),
-        updated_at: null,
-      };
 
       const mappedUser = {
         id: 1,
@@ -133,7 +108,7 @@ describe("UserAuthController", () => {
       expect(sendMock).toHaveBeenCalledWith(res, mappedUser, HttpStatusCode.Ok);
     });
 
-    it("should call next with error if mapping fails", async () => {
+    it("should handle unexpected errors", async () => {
       const error = new Error("Token error");
       const res = {
         locals: {

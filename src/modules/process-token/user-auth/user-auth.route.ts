@@ -1,9 +1,9 @@
-import { Router } from "express";
-import UserAuthController from "./user-auth.controller";
-import RequestValidator from "@/middlewares/request-validator";
-import { LoginInputDto } from "./dto/login.input.dto";
-import { validateProcessTokenAuthUser } from "@/middlewares/validate-process-token-auth-user";
-import { validateProcessTokenUser } from "@/middlewares/validate-process-token-user";
+import { Router } from 'express';
+import UserAuthController from './user-auth.controller';
+import RequestValidator from '@/middlewares/request-validator';
+import { LoginInputDto } from './dto/login.input.dto';
+import { validateProcessTokenAuthUser } from '@/middlewares/validate-process-token-auth-user';
+import { validateProcessTokenUser } from '@/middlewares/validate-process-token-user';
 
 const userAuth: Router = Router();
 const controller = new UserAuthController();
@@ -67,9 +67,12 @@ const controller = new UserAuthController();
  * @return 500 - Internal server error
  * @return 400 - Bad request - Validation errors
  */
-userAuth.post('/login',
-    validateProcessTokenUser,
-     RequestValidator.validate(LoginInputDto), controller.login);
+userAuth.post(
+  '/login',
+  validateProcessTokenUser,
+  RequestValidator.validate(LoginInputDto),
+  controller.login
+);
 
 /**
  * GET /process-token/user-auth/me
@@ -80,7 +83,11 @@ userAuth.post('/login',
  * @return 401 - Unauthorized
  * @return 500 - Internal server error
  */
-userAuth.get('/me', validateProcessTokenAuthUser, controller.getUserDetailsByToken);
+userAuth.get(
+  '/me',
+  validateProcessTokenAuthUser,
+  controller.getUserDetailsByToken
+);
 
 /**
  * GET /process-token/user-auth/logout
@@ -91,6 +98,5 @@ userAuth.get('/me', validateProcessTokenAuthUser, controller.getUserDetailsByTok
  * @return 401 - Unauthorized
  */
 userAuth.post('/logout', validateProcessTokenAuthUser, controller.logout);
-
 
 export default userAuth;

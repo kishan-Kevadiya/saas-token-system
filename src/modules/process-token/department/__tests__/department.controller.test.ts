@@ -54,20 +54,12 @@ describe('DepartmentController', () => {
       'Department get sucessfully.'
     );
   });
-
-  it('should handle errors and return 500', async () => {
-    const error = new Error('Database error');
-
-    mockService.getDepartment.mockRejectedValue(error);
+  it('should handle unexpected errors', async () => {
+    const error = new Error('Service failed');
+    mockService.getDepartment.mockRejectedValueOnce(error);
 
     await controller.getDepartment(req, res, next);
 
-    expect((controller as any).send).toHaveBeenCalledWith(
-      res,
-      null,
-      HttpStatusCode.InternalServerError,
-      'An unexpected error occurred',
-      error
-    );
+    expect(next).toHaveBeenCalledWith(error);
   });
 });
