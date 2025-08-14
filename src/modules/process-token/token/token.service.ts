@@ -16,6 +16,27 @@ import { HttpBadRequestError } from '@/lib/errors';
 import { SocketNamespace } from '@/enums/socket.enum';
 
 export default class TokenService {
+
+  private checkTokenDelay(timeTaken: string, tokenCallingTime: Date, delaySeconds = 10): void {
+  const totalSeconds = this.convertTimeTakenToSeconds(timeTaken);
+
+  if (totalSeconds <= delaySeconds) {
+    const currentTime = new Date(new Date().getTime() + totalSeconds * 1000);
+    const tokenTime = new Date(tokenCallingTime);
+    const newTime = new Date(tokenTime.getTime() + delaySeconds * 1000);
+
+    if (currentTime < newTime) {
+      const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
+      throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
+    }
+  }
+}
+
+private convertTimeTakenToSeconds(timeTaken: string): number {
+  const [hours, minutes, seconds] = timeTaken.split(":").map(Number);
+  return (hours * 3600) + (minutes * 60) + seconds;
+}
+
   private getTimeDifference(
     fromTimeStr: Date | string,
     toTimeStr?: string
@@ -83,6 +104,7 @@ export default class TokenService {
         token_status: true,
         updated_at: true,
         created_at: true,
+        time_taken: true,
         token_calling_time: true,
         company: {
           select: {
@@ -95,23 +117,16 @@ export default class TokenService {
     if (!currentToken) {
       throw new HttpBadRequestError('Token not found!');
     }
-    if( currentToken && currentToken.token_calling_time) {
 
-      const currentTime = new Date();
-      const tokenTime = new Date(currentToken.token_calling_time);
-      const delayMs = 10 * 1000;
-      const newTime = new Date(tokenTime.getTime() + delayMs);
-      if (currentTime < newTime) {
-        const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
-        throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
+    if(args.status !== TokenStatus.WAITING) {
+      if( currentToken && currentToken.time_taken && currentToken.token_calling_time) {
+         this.checkTokenDelay(currentToken.time_taken, currentToken.token_calling_time);
       }
-  }
-
-    
+    }
 
     if (args.status === TokenStatus.HOLD) updateData.hold_in_time = now;
     if (args.status === TokenStatus.COMPLETED) updateData.token_out_time = now;
-    if (args.status === TokenStatus.PENDING) updateData.time_taken =  '00:00:00';
+    if (args.status === TokenStatus.WAITING) updateData.time_taken =  '00:00:00';
 
     if (args.status === TokenStatus.ACTIVE) {
       updateData.hold_out_time = now;
@@ -128,16 +143,9 @@ export default class TokenService {
         orderBy: { updated_at: 'desc' },
       });
 
-      if (existingActiveToken && existingActiveToken.token_calling_time) {
-        const currentTime = new Date();
-          const tokenTime = new Date(existingActiveToken.token_calling_time);
-          const delayMs = 10 * 1000;
-          const newTime = new Date(tokenTime.getTime() + delayMs);
-          if (currentTime < newTime) {
-            const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
-            throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
-          }
-
+      if (existingActiveToken && existingActiveToken.token_calling_time){
+    
+         this.checkTokenDelay(existingActiveToken.time_taken, existingActiveToken.token_calling_time);
 
         const timeDiff = this.getTimeDifference(
           existingActiveToken.hold_out_time
@@ -416,18 +424,6 @@ export default class TokenService {
         : Promise.resolve(null),
     ]);
 
-    if( tokenDetails && tokenDetails.token_calling_time) {
-
-      const currentTime = new Date();
-      const tokenTime = new Date(tokenDetails.token_calling_time);
-      const delayMs = 10 * 1000;
-      const newTime = new Date(tokenTime.getTime() + delayMs);
-      if (currentTime < newTime) {
-        const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
-        throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
-      }
-  }
-
     if (!counterSettings) {
       throw new Error('Counter settings not found.');
     }
@@ -569,9 +565,13 @@ export default class TokenService {
           deleted_at: null,
         },
         include:{
-          token_series: true
+          token_series: true,
         }
       });
+      
+       if (tokenDetails?.time_taken) {
+            this.checkTokenDelay(tokenDetails.time_taken, tokenDetails.token_calling_time);
+        }
     }
     switch (data.status) {
       case 'NEXT':
@@ -597,17 +597,6 @@ export default class TokenService {
         });
 
         if (tokenDetails) {
-
-          const currentTime = new Date();
-          const tokenTime = new Date(tokenDetails.token_calling_time);
-          const delayMs = 10 * 1000;
-          const newTime = new Date(tokenTime.getTime() + delayMs);
-          if (currentTime < newTime) {
-            const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
-            throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
-          }
-
-
           const timeDiff = this.getTimeDifference(
             (tokenDetails.hold_out_time
               ? tokenDetails.hold_out_time
@@ -664,7 +653,7 @@ export default class TokenService {
             time_taken: timeTaken,
           });
 
-          const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.ht_series.hash_id}`;
+          const roomName = `company:${currentUser.company.hash_id}:series:${tokenDetails.token_series.hash_id}`;
           this.emitRoomRefresh(tokenDetails.hash_id, roomName);
         }
 
@@ -771,6 +760,7 @@ export default class TokenService {
         const clonePriorityToken = structuredClone(priorityToken);
         clonePriorityToken.token_status = TokenStatus.ACTIVE;
         clonePriorityToken.token_calling_time = new Date();
+        clonePriorityToken.time_taken = '00:00:00',
         clonePriorityToken.counter = {
           id: currentUser.counter_details.id,
           hash_id: currentUser.counter_details.hash_id,
@@ -800,6 +790,7 @@ export default class TokenService {
               counter_number_id: currentUser.counter_details.id,
               token_calling_time: new Date(),
               updated_at: new Date(),
+              time_taken: '00:00:00'
             },
           });
 
@@ -869,7 +860,7 @@ export default class TokenService {
         }
         const timeDiff = this.getTimeDifference(
           tokenDetail.hold_out_time
-            ? tokenDetail.hold_out_time
+            ? (tokenDetail.time_taken === '00:00:00' ? tokenDetail.token_calling_time : tokenDetail.hold_out_time ) 
             : tokenDetail.token_calling_time
         );
 
