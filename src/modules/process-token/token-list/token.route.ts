@@ -87,6 +87,9 @@ const controller = new TokenController();
  * @return 404 - Company or counter not found
  * @return 500 - Internal server error
  */
-tokenList.get('/statistics/:company_id/:counter_id', controller.getTokenStatistics);
+tokenList.get(
+  '/statistics/:company_id/:counter_id',
+  controller.getTokenStatistics
+);
 
 export default tokenList;

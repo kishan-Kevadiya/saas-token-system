@@ -1,8 +1,8 @@
-import { Router } from "express";
-import AuthController from "./auth.controller";
-import RequestValidator from "@/middlewares/request-validator";
-import { LoginInputDto } from "./dto/login.input.dto";
-import { validateGenerateTokenUser } from "@/middlewares/validate-generate-token-user";
+import { Router } from 'express';
+import AuthController from './auth.controller';
+import RequestValidator from '@/middlewares/request-validator';
+import { LoginInputDto } from './dto/login.input.dto';
+import { validateGenerateTokenUser } from '@/middlewares/validate-generate-token-user';
 
 const auth: Router = Router();
 const controller = new AuthController();
@@ -65,7 +65,6 @@ const controller = new AuthController();
  * @property {string} token - JWT or authentication token
  * @property {TokenGenerateCurrentUser} user - Authenticated user details
  */
-
 
 /**
  * generateTokenUserLoginReponse

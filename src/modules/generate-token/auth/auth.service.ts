@@ -1,23 +1,19 @@
-import prisma from "@/lib/prisma";
-import { LoginInputDto } from "./dto/login.input.dto";
-import LogMessage from "@/decorators/log-message.decorator";
+import prisma from '@/lib/prisma';
+import { LoginInputDto } from './dto/login.input.dto';
+import LogMessage from '@/decorators/log-message.decorator';
 import bcrypt from 'bcrypt';
-import { generateJWTToken } from "@/utils/generate-jwt-token";
-import { HttpBadRequestError } from "@/lib/errors";
-
-
+import { generateJWTToken } from '@/utils/generate-jwt-token';
+import { HttpBadRequestError } from '@/lib/errors';
 
 export default class AuthService {
-
-
-     private async fetchUserInfo(whereClause) {
+  private async fetchUserInfo(whereClause) {
     return await prisma.ht_company.findFirst({
       where: whereClause,
       include: {
         main_company: true,
         city: true,
-        state: true
-      }
+        state: true,
+      },
     });
   }
 
@@ -31,24 +27,24 @@ export default class AuthService {
       username: user.username,
       latitude: user.latitude,
       longitude: user.longitude,
-      city: user.city ? 
-      {
-        id: user.city.hash_id,
-        name: user.city.name
-      }
-      : null,
-      state: user.state ? 
-      {
-        id: user.state.hash_id,
-        name: user.state.name
-      }
-      : null,
-      main_company: user.main_company ? 
-      {
-        id: user.main_company.hash_id,
-        company_name: user.main_company.company_name
-      }
-      : null,
+      city: user.city
+        ? {
+            id: user.city.hash_id,
+            name: user.city.name,
+          }
+        : null,
+      state: user.state
+        ? {
+            id: user.state.hash_id,
+            name: user.state.name,
+          }
+        : null,
+      main_company: user.main_company
+        ? {
+            id: user.main_company.hash_id,
+            company_name: user.main_company.company_name,
+          }
+        : null,
       appointment_generate: user.appointment_generate,
       saturday_off: user.saturday_off,
       sunday_off: user.sunday_off,
@@ -56,11 +52,11 @@ export default class AuthService {
       is_print_token: user.is_print_token,
       is_download_token: user.is_download_token,
       created_at: user.created_at,
-      updated_at: user.updated_at
+      updated_at: user.updated_at,
     };
   }
 
-      @LogMessage<[LoginInputDto]>({
+  @LogMessage<[LoginInputDto]>({
     message: 'Inside login method of AuthService',
   })
   public async login(data: LoginInputDto): Promise<any> {
@@ -70,7 +66,7 @@ export default class AuthService {
     });
 
     if (!userInfo) {
-        throw new HttpBadRequestError('Invalid credential')
+      throw new HttpBadRequestError('Invalid credential');
     }
 
     const isPasswordValid = await bcrypt.compare(
@@ -92,13 +88,10 @@ export default class AuthService {
     };
   }
 
-
-    public async getUserDetailsByHashId(
-    userId: string
-  ): Promise<any> {
+  public async getUserDetailsByHashId(userId: string): Promise<any> {
     const userInfo = await this.fetchUserInfo({
       hash_id: userId,
-      deleted_at: null
+      deleted_at: null,
     });
 
     if (!userInfo) {

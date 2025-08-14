@@ -1,6 +1,12 @@
 import { SeriesSelection } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsNumber, IsString, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 
 export class ButtonSettings {
   @IsString()

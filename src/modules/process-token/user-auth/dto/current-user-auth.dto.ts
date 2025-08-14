@@ -1,4 +1,11 @@
-import { IsString, IsNumber, IsOptional, IsObject, IsDate, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsObject,
+  IsDate,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UserCompanyDto {

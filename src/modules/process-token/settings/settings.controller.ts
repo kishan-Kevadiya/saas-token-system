@@ -25,12 +25,7 @@ export default class SettingsController extends Api {
 
       this.send(res, settings, HttpStatusCode.Ok, 'Settings get sucessfully.');
     } catch (e) {
-      this.send(
-        res,
-        null,
-        HttpStatusCode.InternalServerError,
-        'An unexpected error occurred',
-      );
+      _next(e);
     }
   };
 }

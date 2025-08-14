@@ -1,4 +1,4 @@
-import { DisplayTransferToken, TokenStatus, TransferTokenMethod, TransferTokenWise } from '@prisma/client';
+import { DisplayTransferToken, TokenStatus } from '@prisma/client';
 import { HttpNotFoundError } from '@/lib/errors';
 import prisma from '@/lib/prisma';
 import {
@@ -8,7 +8,7 @@ import {
 
 interface SeriesInfo {
   id: number;
-  hash_id: string; 
+  hash_id: string;
   abbreviation: string;
 }
 
@@ -41,7 +41,7 @@ interface DateFilter {
 
 interface CounterInfo {
   id: number;
-  hash_id: string; 
+  hash_id: string;
   series: string;
   transfer_token_wise: string | null;
   transfer_token_method: string | null;
@@ -163,27 +163,29 @@ export default class TokenService {
     return tokens.filter((token) => {
       // If token status is not TRANSFER, include it
       if (token.token_status === TokenStatus.TRANSFER) {
+        // For TRANSFER tokens, apply filtering logic
 
-      // For TRANSFER tokens, apply filtering logic
-    
         // if(counter.transfer_token_method === TransferTokenMethod.MANUAL) return counter.id === token
-        
+
         // Check if current counter id equals transfer_counter_id
         const currentDepartmentId = counter.dept_id;
-        return counter.id === token.transfer_counter?.id || currentDepartmentId === token.transfer_department?.id;;
-     
-   
+        return (
+          counter.id === token.transfer_counter?.id ||
+          currentDepartmentId === token.transfer_department?.id
+        );
       }
-    if(token.token_status === TokenStatus.PENDING || token.token_status === TokenStatus.HOLD){
+      if (
+        token.token_status === TokenStatus.PENDING ||
+        token.token_status === TokenStatus.HOLD
+      ) {
+        return counter.id === token.counter?.id;
+      }
 
-      return counter.id === token.counter?.id;
-    }
+      if (token.token_status === TokenStatus.COMPLETED) {
+        return counter.id === token.counter?.id;
+      }
 
-    if(token.token_status === TokenStatus.COMPLETED){
-      return counter.id === token.counter?.id
-    }
-   
-       return true
+      return true;
     });
   }
 
@@ -346,7 +348,10 @@ export default class TokenService {
     }
 
     // Then by generation time (earlier first)
-    return new Date(a.token_generate_time).getTime() - new Date(b.token_generate_time).getTime();
+    return (
+      new Date(a.token_generate_time).getTime() -
+      new Date(b.token_generate_time).getTime()
+    );
   };
 
   private transformTokenResponse(token: ITokenData): any {
@@ -388,4 +393,3 @@ export default class TokenService {
     };
   }
 }
-

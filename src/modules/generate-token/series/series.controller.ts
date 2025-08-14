@@ -32,8 +32,8 @@ export default class SeriesController extends Api {
         HttpStatusCode.Ok,
         'Series retrieved successfully'
       );
-    } catch (error) {
-      next(error);
+    } catch (e) {
+      next(e);
     }
   };
 
@@ -53,8 +53,8 @@ export default class SeriesController extends Api {
         HttpStatusCode.Ok,
         'Sub-series data retrieved successfully'
       );
-    } catch (error) {
-      next(error);
+    } catch (e) {
+      next(e);
     }
   };
 }

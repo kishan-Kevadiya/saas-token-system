@@ -1,8 +1,8 @@
-import { Router } from "express";
-import AuthController from "./auth.controller";
-import RequestValidator from "@/middlewares/request-validator";
-import { LoginInputDto } from "./dto/login.input.dto";
-import { validateProcessTokenUser } from "@/middlewares/validate-process-token-user";
+import { Router } from 'express';
+import AuthController from './auth.controller';
+import RequestValidator from '@/middlewares/request-validator';
+import { LoginInputDto } from './dto/login.input.dto';
+import { validateProcessTokenUser } from '@/middlewares/validate-process-token-user';
 
 const auth: Router = Router();
 const controller = new AuthController();

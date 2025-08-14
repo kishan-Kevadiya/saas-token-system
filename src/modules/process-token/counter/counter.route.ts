@@ -1,7 +1,7 @@
-import { Router } from "express";
-import CounterController from "./counter.controller";
-import { validateProcessTokenAuthUser } from "@/middlewares/validate-process-token-auth-user";
-import { validateProcessTokenUser } from "@/middlewares/validate-process-token-user";
+import { Router } from 'express';
+import CounterController from './counter.controller';
+import { validateProcessTokenAuthUser } from '@/middlewares/validate-process-token-auth-user';
+import { validateProcessTokenUser } from '@/middlewares/validate-process-token-user';
 
 const counter: Router = Router();
 const controller = new CounterController();
@@ -24,7 +24,11 @@ const controller = new CounterController();
  * @return 500 - Internal server error
  * @return 404 - Not found
  */
-counter.get('/dropdown-list',validateProcessTokenAuthUser, controller.counterListForDropDown);
+counter.get(
+  '/dropdown-list',
+  validateProcessTokenAuthUser,
+  controller.counterListForDropDown
+);
 
 /**
  * CounterFilterDetail
@@ -52,7 +56,5 @@ counter.get('/dropdown-list',validateProcessTokenAuthUser, controller.counterLis
  * @return 404 - Not found
  */
 counter.get('/', validateProcessTokenUser, controller.getCounterByCompanyId);
-
-
 
 export default counter;

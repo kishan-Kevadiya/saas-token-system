@@ -1,8 +1,4 @@
-import {
-  IsString,
-  IsNumber,
-  IsObject,
-} from 'class-validator';
+import { IsString, IsNumber, IsObject } from 'class-validator';
 
 export class processTokenUserCityDto {
   @IsString()

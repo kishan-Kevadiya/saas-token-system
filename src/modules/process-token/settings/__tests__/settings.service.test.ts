@@ -71,8 +71,8 @@ describe('SettingsService', () => {
         block_size: true,
         font_size: true,
         language_id: true,
-        service_selection: true,
         minutes_of_calling_before: true,
+        series_selection: true,
         srs_count: true,
       },
     });

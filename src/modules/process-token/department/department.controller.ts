@@ -30,7 +30,7 @@ export default class DepartmentController extends Api {
         'Department get sucessfully.'
       );
     } catch (e) {
-      _next(e)
+      _next(e);
     }
   };
 }
