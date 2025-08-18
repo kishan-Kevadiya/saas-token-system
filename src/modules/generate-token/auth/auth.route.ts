@@ -1,8 +1,9 @@
-import { Router } from 'express';
-import AuthController from './auth.controller';
-import RequestValidator from '@/middlewares/request-validator';
-import { LoginInputDto } from './dto/login.input.dto';
-import { validateGenerateTokenUser } from '@/middlewares/validate-generate-token-user';
+import { Router } from "express";
+import AuthController from "./auth.controller";
+import RequestValidator from "@/middlewares/request-validator";
+import { LoginInputDto } from "./dto/login.input.dto";
+import { validateGenerateTokenUser } from "@/middlewares/validate-generate-token-user";
+import { GerateTokenInputDto } from "./dto/generate-token.dto";
 
 const auth: Router = Router();
 const controller = new AuthController();
@@ -74,6 +75,18 @@ const controller = new AuthController();
  */
 
 /**
+ * generateTokenReponse
+ * @typedef {object} generateTokenReponse
+ * @property {string} token - Auth token
+ */
+
+/**
+ * generateTokenInputBody
+ * @typedef {object} generateTokenInputBody
+ * @property {string} asccode.required - asccode of user
+ */
+
+/**
  * POST /generate-token/auth/login
  * @summary Login customer
  * @tags generate token company auth
@@ -86,6 +99,18 @@ const controller = new AuthController();
 auth.post('/login', RequestValidator.validate(LoginInputDto), controller.login);
 
 /**
+ * POST /generate-token/auth/generate-token
+ * @summary Login customer
+ * @tags generate token company auth
+ * @param {generateTokenInputBody} request.body.required
+ * @return {generateTokenReponse} 200 - loging successfully
+ * @return 500 - Internal server error
+ * @return 400 - Bad request - Validation errors
+ */
+
+auth.post('/generate-token', RequestValidator.validate(GerateTokenInputDto), controller.generateToken )
+
+/**
  * GET /generate-token/auth/me
  * @security Authorization
  * @summary Get generate token user details by token
@@ -95,5 +120,6 @@ auth.post('/login', RequestValidator.validate(LoginInputDto), controller.login);
  * @return 500 - Internal server error
  */
 auth.get('/me', validateGenerateTokenUser, controller.getUserDetailsByToken);
+
 
 export default auth;

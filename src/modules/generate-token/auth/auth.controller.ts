@@ -2,8 +2,9 @@ import Api from '@/lib/api';
 import AuthService from './auth.service';
 import { CustomResponse } from '@/types/common.type';
 import { type NextFunction, type Request } from 'express';
-import { HttpStatusCode } from 'axios';
-import { CurrentUserDto } from './dto/current-user.dto';
+import { HttpStatusCode } from "axios";
+import { CurrentUserDto } from "./dto/current-user.dto";
+import { HttpBadRequestError, HttpUnAuthorizedError } from "@/lib/errors";
 
 export default class AuthController extends Api {
   private readonly authService: AuthService;
@@ -26,7 +27,29 @@ export default class AuthController extends Api {
     }
   };
 
-  public getUserDetailsByToken = async (
+  public generateToken = async (
+    req: Request,
+    res: CustomResponse<CurrentUserDto>,
+    next: NextFunction
+  ) => {
+    try {
+      const apiKey = req.headers['x-api-key'];
+      if(!apiKey){
+        throw new HttpBadRequestError('Missing api key')
+      }
+
+      if(apiKey !== process.env.API_kEY){
+     throw new HttpUnAuthorizedError('Invalid api key')
+    }
+    
+      const token = await this.authService.getToken(req.body);
+      this.send(res, token, HttpStatusCode.Ok, 'Login successfully');
+    } catch (e) {
+      next(e)
+    }
+  };
+
+    public getUserDetailsByToken = async (
     _req: Request,
     res: CustomResponse<CurrentUserDto>,
     next: NextFunction

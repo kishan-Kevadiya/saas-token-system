@@ -5,9 +5,11 @@ import bcrypt from 'bcrypt';
 import { generateJWTToken } from '@/utils/generate-jwt-token';
 import { HttpBadRequestError } from '@/lib/errors';
 import moment from 'moment';
+import { GerateTokenInputDto } from './dto/generate-token.dto';
+
 
 export default class AuthService {
-  private async fetchUserInfo(whereClause) {
+     private async fetchUserInfo(whereClause) {
     return await prisma.ht_company.findFirst({
       where: whereClause,
       include: {
@@ -99,7 +101,9 @@ export default class AuthService {
     };
   }
 
-  public async getUserDetailsByHashId(userId: string): Promise<any> {
+    public async getUserDetailsByHashId(
+    userId: string
+  ): Promise<any> {
     const userInfo = await this.fetchUserInfo({
       hash_id: userId,
       deleted_at: null,
@@ -114,5 +118,24 @@ export default class AuthService {
     }
 
     return this.mapUserResponse(userInfo);
+  }
+  public async getToken(data: GerateTokenInputDto): Promise<any> {
+      const userInfo = await this.fetchUserInfo({
+      asccode: data.asccode,
+      deleted_at: null,
+    });
+
+    if (!userInfo) {
+        throw new HttpBadRequestError('Invalid credential')
+    }
+
+    const token = generateJWTToken({
+      sub: userInfo.hash_id,
+      asccode: userInfo.asccode,
+    });
+
+    return {
+      token
+    };
   }
 }
