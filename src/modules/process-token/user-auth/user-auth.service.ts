@@ -5,6 +5,7 @@ import { LoginInputDto } from './dto/login.input.dto';
 import prisma from '@/lib/prisma';
 import { CurrentUserDto } from '../company-auth/dto/current-user.dto';
 import { UserResponseDto } from './dto/current-user-auth.dto';
+import moment from 'moment';
 
 export default class UserAuthService {
   private async fetchUserInfo(whereClause) {
@@ -14,6 +15,12 @@ export default class UserAuthService {
         ht_company: {
           include: {
             ht_counter_filter: true,
+            ht_holidays: {
+              select: {
+                holiday_date: true,
+                is_active: true
+              }
+            }
           },
         },
         ht_department: true,
@@ -40,18 +47,18 @@ export default class UserAuthService {
       },
       company: user.ht_company
         ? {
-            id: user.ht_company.id,
-            hash_id: user.ht_company.hash_id,
-            company_name: user.ht_company.company_name,
-          }
+          id: user.ht_company.id,
+          hash_id: user.ht_company.hash_id,
+          company_name: user.ht_company.company_name,
+        }
         : null,
       department: user.ht_department
         ? {
-            id: user.ht_department.hash_id,
-            english_name: user.ht_department.english_name,
-            dept_hindi_name: user.ht_department.dept_hindi_name,
-            dept_regional_name: user.ht_department.dept_regional_name,
-          }
+          id: user.ht_department.hash_id,
+          english_name: user.ht_department.english_name,
+          dept_hindi_name: user.ht_department.dept_hindi_name,
+          dept_regional_name: user.ht_department.dept_regional_name,
+        }
         : null,
       created_at: user.created_at,
       updated_at: user.updated_at,
@@ -80,13 +87,17 @@ export default class UserAuthService {
       throw new HttpBadRequestError('Invalid credentials!');
     }
 
+    if (userInfo.ht_company.ht_holidays.some((holiday) => (holiday.holiday_date.toString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
+      throw new HttpBadRequestError('The system is temporarily shutdown today due to a scheduled holiday.')
+    }
+
+
     const counterResult = await prisma.ht_counter_filter.findUniqueOrThrow({
       where: {
         hash_id: data.counter_id,
         company_id: currentUser.id,
         deleted_at: null,
       },
-
       select: {
         id: true,
         hash_id: true,
@@ -153,6 +164,12 @@ export default class UserAuthService {
     if (!userInfo) {
       return null;
     }
+
+    if (userInfo.ht_company.ht_holidays.some((holiday) => (holiday.holiday_date.toString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
+      throw new HttpBadRequestError('The system is temporarily shutdown today due to a scheduled holiday.')
+    }
+
+
 
     return this.mapUserResponse({
       ...userInfo,

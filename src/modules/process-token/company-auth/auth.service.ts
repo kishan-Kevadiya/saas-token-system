@@ -4,6 +4,7 @@ import LogMessage from '@/decorators/log-message.decorator';
 import bcrypt from 'bcrypt';
 import { generateJWTToken } from '@/utils/generate-jwt-token';
 import { HttpBadRequestError } from '@/lib/errors';
+import moment from 'moment';
 
 export default class AuthService {
   private async fetchUserInfo(whereClause) {
@@ -11,6 +12,12 @@ export default class AuthService {
       where: whereClause,
       include: {
         main_company: true,
+        ht_holidays: {
+          select: {
+            holiday_date: true,
+            is_active: true
+          }
+        },
         city: true,
         state: true,
       },
@@ -30,21 +37,21 @@ export default class AuthService {
       longitude: user.longitude,
       city: user.city
         ? {
-            id: user.city.hash_id,
-            name: user.city.name,
-          }
+          id: user.city.hash_id,
+          name: user.city.name,
+        }
         : null,
       state: user.state
         ? {
-            id: user.state.hash_id,
-            name: user.state.name,
-          }
+          id: user.state.hash_id,
+          name: user.state.name,
+        }
         : null,
       main_company: user.main_company
         ? {
-            id: user.main_company.hash_id,
-            company_name: user.main_company.company_name,
-          }
+          id: user.main_company.hash_id,
+          company_name: user.main_company.company_name,
+        }
         : null,
       appointment_generate: user.appointment_generate,
       saturday_off: user.saturday_off,
@@ -78,6 +85,11 @@ export default class AuthService {
       throw new HttpBadRequestError('Invalid credentials!');
     }
 
+    if (userInfo.ht_holidays.some((holiday) => (holiday.holiday_date.toString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
+      throw new HttpBadRequestError('The system is temporarily shutdown today due to a scheduled holiday.')
+    }
+
+
     const token = generateJWTToken({
       sub: userInfo.hash_id,
       asccode: userInfo.asccode,
@@ -98,6 +110,11 @@ export default class AuthService {
     if (!userInfo) {
       return null;
     }
+
+    if (userInfo.ht_holidays.some((holiday) => (holiday.holiday_date.toString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
+      throw new HttpBadRequestError('The system is temporarily shutdown today due to a scheduled holiday.')
+    }
+
 
     return this.mapUserResponse(userInfo);
   }
