@@ -84,7 +84,7 @@ export default class AuthService {
       throw new HttpBadRequestError('Invalid credentials!', []);
     }
 
-    if (userInfo.ht_holidays.some((holiday) => (holiday.holiday_date.toString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
+    if (userInfo.ht_holidays.some((holiday) => (holiday.holiday_date.toISOString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
       throw new HttpBadRequestError('The system is temporarily shutdown today due to a scheduled holiday.')
     }
 
@@ -109,7 +109,7 @@ export default class AuthService {
       return null;
     }
 
-    if (userInfo.ht_holidays.some((holiday) => (holiday.holiday_date.toString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
+    if (userInfo.ht_holidays.some((holiday) => (holiday.holiday_date.toISOString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
       throw new HttpBadRequestError('The system is temporarily shutdown today due to a scheduled holiday.')
     }
 
