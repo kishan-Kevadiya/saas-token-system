@@ -221,6 +221,7 @@ model ht_company {
   print_settings                 print_settings[]                 @relation("print_settings_ht_company")
 
   @@unique([asccode, email, contact_no, username, deleted_at])
+  ht_holidays ht_holidays[] @relation("ht_company_ht_holidays")
 }
 
 model ht_users {
@@ -514,11 +515,11 @@ enum ButtonName {
 }
 
 model ht_buttons {
-  id         Int    @id @default(autoincrement())
-  hash_id    String @unique @default(uuid()) @db.VarChar(36)
-  dept_id    Int    @db.Int
+  id         Int        @id @default(autoincrement())
+  hash_id    String     @unique @default(uuid()) @db.VarChar(36)
+  dept_id    Int        @db.Int
   name       ButtonName
-  company_id Int    @db.Int
+  company_id Int        @db.Int
 
   created_at DateTime  @default(now()) @db.DateTime(6)
   updated_at DateTime? @updatedAt @db.DateTime(6)
@@ -680,10 +681,10 @@ model token_logs {
   created_at      DateTime     @default(now()) @db.DateTime(6)
   created_by      Int          @db.Int
 
-  company ht_company        @relation("token_logs_ht_company", fields: [company_id], references: [id])
-  counter ht_counter_filter @relation("token_logs_ht_counter_filter", fields: [counter_id], references: [id])
-  token   tokens            @relation("token_logs_ht_tokens", fields: [token_id], references: [id])
-  created_by_user ht_users @relation("token_logs_ht_users", fields: [created_by], references: [id])
+  company         ht_company        @relation("token_logs_ht_company", fields: [company_id], references: [id])
+  counter         ht_counter_filter @relation("token_logs_ht_counter_filter", fields: [counter_id], references: [id])
+  token           tokens            @relation("token_logs_ht_tokens", fields: [token_id], references: [id])
+  created_by_user ht_users          @relation("token_logs_ht_users", fields: [created_by], references: [id])
 }
 
 model print_settings {
@@ -700,4 +701,14 @@ model print_settings {
   company ht_company @relation("print_settings_ht_company", fields: [company_id], references: [id])
 
   @@unique([company_id, setting_key])
+}
+
+model ht_holidays {
+  id           Int      @id @default(autoincrement())
+  hash_id      String   @unique @default(uuid()) @db.VarChar(36)
+  company_id   Int      @db.Int
+  holiday_date DateTime @db.Date
+  is_active    Int      @default(1) @db.Int
+
+  company ht_company @relation("ht_company_ht_holidays", fields: [company_id],references: [id])
 }
