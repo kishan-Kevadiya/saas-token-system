@@ -152,12 +152,19 @@ model constituency_pincodes {
   @@id([constituency_id, pincode_id])
 }
 
+enum PackageType {
+  PAID
+  FREE
+}
+
 model main_company {
   id      Int    @id @default(autoincrement())
   hash_id String @unique @default(uuid()) @db.VarChar(36)
 
   company_name String @db.VarChar(255)
-  type         Int?   @default(0)
+  type         PackageType
+  expired_at   DateTime    @db.DateTime(6)
+  token_limit  Int         @db.Int
 
   created_at DateTime  @default(now()) @db.DateTime(6)
   updated_at DateTime? @updatedAt @db.DateTime(6)
