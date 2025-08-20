@@ -16,26 +16,31 @@ import { HttpBadRequestError } from '@/lib/errors';
 import { SocketNamespace } from '@/enums/socket.enum';
 
 export default class TokenService {
+  private checkTokenDelay(
+    timeTaken: string,
+    tokenCallingTime: Date,
+    delaySeconds = 10
+  ): void {
+    const totalSeconds = this.convertTimeTakenToSeconds(timeTaken);
 
-  private checkTokenDelay(timeTaken: string, tokenCallingTime: Date, delaySeconds = 10): void {
-  const totalSeconds = this.convertTimeTakenToSeconds(timeTaken);
+    if (totalSeconds <= delaySeconds) {
+      const currentTime = new Date(new Date().getTime() + totalSeconds * 1000);
+      const tokenTime = new Date(tokenCallingTime);
+      const newTime = new Date(tokenTime.getTime() + delaySeconds * 1000);
 
-  if (totalSeconds <= delaySeconds) {
-    const currentTime = new Date(new Date().getTime() + totalSeconds * 1000);
-    const tokenTime = new Date(tokenCallingTime);
-    const newTime = new Date(tokenTime.getTime() + delaySeconds * 1000);
-
-    if (currentTime < newTime) {
-      const remainingSeconds = Math.ceil((newTime.getTime() - currentTime.getTime()) / 1000);
-      throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
+      if (currentTime < newTime) {
+        const remainingSeconds = Math.ceil(
+          (newTime.getTime() - currentTime.getTime()) / 1000
+        );
+        throw new HttpBadRequestError(`Next token call after ${remainingSeconds} seconds`);
+      }
     }
   }
-}
 
-private convertTimeTakenToSeconds(timeTaken: string): number {
-  const [hours, minutes, seconds] = timeTaken.split(":").map(Number);
-  return (hours * 3600) + (minutes * 60) + seconds;
-}
+  private convertTimeTakenToSeconds(timeTaken: string): number {
+    const [hours, minutes, seconds] = timeTaken.split(':').map(Number);
+    return hours * 3600 + minutes * 60 + seconds;
+  }
 
   private getTimeDifference(
     fromTimeStr: Date | string,
@@ -118,15 +123,22 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
       throw new HttpBadRequestError('Token not found!');
     }
 
-    if(args.status !== TokenStatus.WAITING) {
-      if( currentToken && currentToken.time_taken && currentToken.token_calling_time) {
-         this.checkTokenDelay(currentToken.time_taken, currentToken.token_calling_time);
+    if (args.status !== TokenStatus.WAITING) {
+      if (
+        currentToken &&
+        currentToken.time_taken &&
+        currentToken.token_calling_time
+      ) {
+        this.checkTokenDelay(
+          currentToken.time_taken,
+          currentToken.token_calling_time
+        );
       }
     }
 
     if (args.status === TokenStatus.HOLD) updateData.hold_in_time = now;
     if (args.status === TokenStatus.COMPLETED) updateData.token_out_time = now;
-    if (args.status === TokenStatus.WAITING) updateData.time_taken =  '00:00:00';
+    if (args.status === TokenStatus.WAITING) updateData.time_taken = '00:00:00';
 
     if (args.status === TokenStatus.ACTIVE) {
       updateData.hold_out_time = now;
@@ -143,9 +155,11 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
         orderBy: { updated_at: 'desc' },
       });
 
-      if (existingActiveToken && existingActiveToken.token_calling_time){
-    
-         this.checkTokenDelay(existingActiveToken.time_taken, existingActiveToken.token_calling_time);
+      if (existingActiveToken && existingActiveToken.token_calling_time) {
+        this.checkTokenDelay(
+          existingActiveToken.time_taken,
+          existingActiveToken.token_calling_time
+        );
 
         const timeDiff = this.getTimeDifference(
           existingActiveToken.hold_out_time
@@ -336,14 +350,16 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
       user_id: updated.ht_user ? updated.ht_user.hash_id : null,
       counter_id: updated.counter ? updated.counter.hash_id : null,
       transfer_counter_id: updated.counter ? updated.counter.hash_id : null,
-      transfer_department_id: updated.token_transfer_department ? updated.token_transfer_department.hash_id : null,
+      transfer_department_id: updated.token_transfer_department
+        ? updated.token_transfer_department.hash_id
+        : null,
       token_series_number: updated.token_series_number,
       customer_name: updated.customer_name,
       customer_mobile_number: updated.customer_mobile_number,
       hold_in_time: updated.hold_in_time,
       hold_out_time: updated.hold_out_time,
       time_taken: updated.time_taken,
-      form_data: updated.ht_appointment_token_form_data?.[0]?.form_data ?? null
+      form_data: updated.ht_appointment_token_form_data?.[0]?.form_data ?? null,
     };
   }
 
@@ -407,20 +423,20 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
       }),
       transferDepartmentId
         ? prisma.ht_department.findUniqueOrThrow({
-          where: { hash_id: transferDepartmentId, deleted_at: null },
-          select: {
-            id: true,
-            hash_id: true,
-            dept_english_name: true,
-            dept_regional_name: true,
-          },
-        })
+            where: { hash_id: transferDepartmentId, deleted_at: null },
+            select: {
+              id: true,
+              hash_id: true,
+              dept_english_name: true,
+              dept_regional_name: true,
+            },
+          })
         : Promise.resolve(null),
       transferCounterId
         ? prisma.ht_counter_filter.findUniqueOrThrow({
-          where: { hash_id: transferCounterId, deleted_at: null },
-          select: { id: true, hash_id: true, counter_no: true },
-        })
+            where: { hash_id: transferCounterId, deleted_at: null },
+            select: { id: true, hash_id: true, counter_no: true },
+          })
         : Promise.resolve(null),
     ]);
 
@@ -444,21 +460,25 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
       ) {
         tokenUpdateData.token_transfer_counter_id =
           counterSettings.transfer_counter_id;
+        tokenUpdateData.token_transfer_department_id = null;
         redisUpdateData.transfer_counter = {
           id: counterSettings.transfer_counter?.id!,
           hash_id: counterSettings.transfer_counter?.hash_id!,
           counter_no: counterSettings.transfer_counter?.counter_no!,
         };
+        redisUpdateData.transfer_department = null;
       } else {
         if (!transferCounterDetails) {
           throw new HttpBadRequestError('Transfer counter details not found.');
         }
         tokenUpdateData.token_transfer_counter_id = transferCounterDetails.id;
+        tokenUpdateData.token_transfer_department_id = null;
         redisUpdateData.transfer_counter = {
           id: transferCounterDetails.id,
           hash_id: transferCounterDetails.hash_id,
           counter_no: transferCounterDetails.counter_no,
         };
+        redisUpdateData.transfer_department = null;
       }
     } else if (
       counterSettings.transfer_token_wise === TransferTokenWise.DEPARTMENT
@@ -468,6 +488,7 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
       ) {
         tokenUpdateData.token_transfer_department_id =
           counterSettings.transfer_department_id;
+        tokenUpdateData.token_transfer_counter_id = null;
         redisUpdateData.transfer_department = {
           id: counterSettings.department.id,
           hash_id: counterSettings.department.hash_id,
@@ -475,6 +496,7 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
             counterSettings.department.dept_english_name ??
             counterSettings.department.dept_regional_name,
         };
+        redisUpdateData.transfer_counter = null;
       } else {
         if (!departmentDetails) {
           throw new HttpBadRequestError(
@@ -482,6 +504,7 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
           );
         }
         tokenUpdateData.token_transfer_department_id = departmentDetails?.id;
+        tokenUpdateData.token_transfer_counter_id = null;
         redisUpdateData.transfer_department = {
           id: departmentDetails.id,
           hash_id: departmentDetails.hash_id,
@@ -489,6 +512,7 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
             departmentDetails.dept_english_name ??
             departmentDetails.dept_regional_name,
         };
+        redisUpdateData.transfer_counter = null;
       }
     } else {
       throw new Error('Invalid transfer_token_wise setting.');
@@ -555,7 +579,6 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
       currentUser.company.hash_id,
       currentUser.counter_details.hash_id
     );
-
     let tokenDetails: any = null;
 
     if (tokenId) {
@@ -564,14 +587,17 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
           hash_id: tokenId,
           deleted_at: null,
         },
-        include:{
+        include: {
           token_series: true,
-        }
+        },
       });
-      
-       if (tokenDetails?.time_taken) {
-            this.checkTokenDelay(tokenDetails.time_taken, tokenDetails.token_calling_time);
-        }
+
+      if (tokenDetails?.time_taken) {
+        this.checkTokenDelay(
+          tokenDetails.time_taken,
+          tokenDetails.token_calling_time
+        );
+      }
     }
     switch (data.status) {
       case 'NEXT':
@@ -616,8 +642,8 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
             new Date().toISOString()
           );
 
-          await prisma.$transaction(async (tx) => {
-            await tx.tokens.update({
+          const updatedToken = await prisma.$transaction(async (tx) => {
+            const updatedToken = await tx.tokens.update({
               where: {
                 id: tokenDetails.id,
               },
@@ -645,10 +671,12 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
                 created_by: currentUser.id,
               },
             });
+
+            return updatedToken;
           });
 
           await tokenManager.updateToken(tokenDetails.hash_id, {
-            token_status: TokenStatus.COMPLETED,
+            token_status: updatedToken.token_status,
             token_out_time: new Date(),
             time_taken: timeTaken,
           });
@@ -666,10 +694,10 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
             select: {
               id: true,
               series_id: true,
-              token_series:{
+              token_series: {
                 select: {
                   hash_id: true,
-                }
+                },
               },
               created_at: true,
               updated_at: true,
@@ -680,9 +708,8 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
             throw new HttpBadRequestError('Transfered token not found!');
           }
 
-
-         const updateTokenData = await prisma.$transaction(async (tx) => {
-          const updateTokenData =  await tx.tokens.update({
+          const updateTokenData = await prisma.$transaction(async (tx) => {
+            const updateTokenData = await tx.tokens.update({
               where: {
                 id: tokenDetails.id,
               },
@@ -690,14 +717,14 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
                 token_status: TokenStatus.ACTIVE,
                 token_calling_time: new Date(),
                 updated_at: new Date(),
-                time_taken: "00:00:00"
+                time_taken: '00:00:00',
               },
               select: {
                 updated_at: true,
                 id: true,
                 time_taken: true,
-                token_calling_time: true
-              }
+                token_calling_time: true,
+              },
             });
 
             await tx.token_logs.create({
@@ -717,14 +744,14 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
                 created_by: currentUser.id,
               },
             });
-            return updateTokenData
+            return updateTokenData;
           });
           await tokenManager.updateToken(data.transfered_token_id, {
             token_status: TokenStatus.ACTIVE,
             token_out_time: new Date(),
-            time_taken :  '00:00:00',
-            updated_at : updateTokenData.updated_at,
-            token_calling_time : updateTokenData.token_calling_time,
+            time_taken: '00:00:00',
+            updated_at: updateTokenData.updated_at,
+            token_calling_time: updateTokenData.token_calling_time,
             counter: {
               id: currentUser.counter_details.id,
               hash_id: currentUser.counter_details.hash_id,
@@ -760,12 +787,12 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
         const clonePriorityToken = structuredClone(priorityToken);
         clonePriorityToken.token_status = TokenStatus.ACTIVE;
         clonePriorityToken.token_calling_time = new Date();
-        clonePriorityToken.time_taken = '00:00:00',
-        clonePriorityToken.counter = {
-          id: currentUser.counter_details.id,
-          hash_id: currentUser.counter_details.hash_id,
-          counter_no: currentUser.counter_details.counter_no,
-        };
+        ((clonePriorityToken.time_taken = '00:00:00'),
+          (clonePriorityToken.counter = {
+            id: currentUser.counter_details.id,
+            hash_id: currentUser.counter_details.hash_id,
+            counter_no: currentUser.counter_details.counter_no,
+          }));
         clonePriorityToken.updated_at = new Date();
 
         await tokenManager.updateToken(
@@ -790,7 +817,7 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
               counter_number_id: currentUser.counter_details.id,
               token_calling_time: new Date(),
               updated_at: new Date(),
-              time_taken: '00:00:00'
+              time_taken: '00:00:00',
             },
           });
 
@@ -860,7 +887,9 @@ private convertTimeTakenToSeconds(timeTaken: string): number {
         }
         const timeDiff = this.getTimeDifference(
           tokenDetail.hold_out_time
-            ? (tokenDetail.time_taken === '00:00:00' ? tokenDetail.token_calling_time : tokenDetail.hold_out_time ) 
+            ? tokenDetail.time_taken === '00:00:00'
+              ? tokenDetail.token_calling_time
+              : tokenDetail.hold_out_time
             : tokenDetail.token_calling_time
         );
 
