@@ -1,47 +1,44 @@
-import { TokenStatus } from '@prisma/client';
+import { DisplayTransferToken, TokenStatus } from '@prisma/client';
 import type { Redis } from 'ioredis';
+import moment from 'moment';
 import RedisClient from '@/lib/redis.client';
 import prisma from '@/lib/prisma';
-import moment from 'moment';
 
 interface ISeries {
-  id: number,
-  hash_id: string,
+  id: number;
+  hash_id: string;
 }
 
 interface ICounter {
-  id: number,
-  hash_id: string,
-  counter_no: number,
-
+  id: number;
+  hash_id: string;
+  counter_no: number;
 }
 
 interface IUser {
-  id: number,
-  hash_id: string,
-  name: string
+  id: number;
+  hash_id: string;
+  name: string;
 }
 
 interface ILanguage {
-  id: number,
-  hash_id: string,
-  name: string
-  code: string
+  id: number;
+  hash_id: string;
+  name: string;
+  code: string;
 }
 
 interface IComapny {
-  id: Number,
-  hash_id: string,
-  name: string,
-
+  id: number;
+  hash_id: string;
+  name: string;
 }
 
 interface IDepartment {
-  id: Number,
-  hash_id: string,
-  name: string,
+  id: number;
+  hash_id: string;
+  name: string;
 }
-
 
 export interface ITokenData {
   token_id: string;
@@ -63,15 +60,13 @@ export interface ITokenData {
   customer_name?: string | null;
   customer_mobile_number?: string | null;
   token_generate_time: Date;
-  form_data?: string
-  time_taken: string
+  form_data?: string;
+  time_taken: string;
   hold_out_time?: Date | null;
   hold_in_time?: Date | null;
   created_at: Date;
   updated_at?: Date | null;
 }
-
-
 
 class RedisTokenStore {
   private readonly redis: Redis;
@@ -465,12 +460,12 @@ class RedisTokenStore {
 export class CompanyTokenManager {
   private static readonly instances = new Map<string, RedisTokenStore>();
   private readonly store: RedisTokenStore;
-  private param: Record<string, any>;
+  private readonly param: Record<string, any>;
 
   constructor(companyId: string, counterId?: string) {
     this.param = {
       company_id: companyId,
-      counter_id: counterId
+      counter_id: counterId,
     };
 
     if (!CompanyTokenManager.instances.has(this.param.company_id)) {
@@ -482,7 +477,6 @@ export class CompanyTokenManager {
 
     this.store = CompanyTokenManager.instances.get(this.param.company_id)!;
   }
-
 
   private readonly compareTokens = (a: ITokenData, b: ITokenData): number => {
     if (a.priority !== b.priority) {
@@ -499,7 +493,6 @@ export class CompanyTokenManager {
   async getTokenById(tokenId: string): Promise<ITokenData> {
     return await this.store.getTokenById(tokenId);
   }
-
 
   async getTokens(): Promise<ITokenData[]> {
     return await this.store.getTokens();
@@ -584,7 +577,6 @@ export class CompanyTokenManager {
     return globalStats;
   }
 
-
   async priorityTokens(filterSeriesId?: string): Promise<ITokenData[]> {
     const seriesOfCounter = await prisma.ht_counter_filter.findUniqueOrThrow({
       where: {
@@ -592,51 +584,81 @@ export class CompanyTokenManager {
         deleted_at: null,
       },
       select: {
-        series: true
-      }
+        id: true,
+        series: true,
+        dept_id: true,
+        company: {
+          select: {
+            ht_company_settings: {
+              select: {
+                display_transfer_token: true,
+              },
+            },
+          },
+        },
+      },
     });
 
-    const seriesListOfCounter = seriesOfCounter.series.split(",").map(Number);
+    const seriesListOfCounter = seriesOfCounter.series.split(',').map(Number);
 
     const seriesList = await prisma.ht_series.findMany({
       where: {
         id: {
-          in: seriesListOfCounter
+          in: seriesListOfCounter,
         },
         company: {
-          hash_id: this.param.company_id
+          hash_id: this.param.company_id,
         },
-        deleted_at: null
+        deleted_at: null,
       },
       select: {
         abbreviation: true,
-        priority: true
-      }
+        priority: true,
+      },
     });
 
-    const allowedAbbreviations = seriesList.map(s => s.abbreviation);
+    const allowedAbbreviations = seriesList.map((s) => s.abbreviation);
 
     const tokenListData = await this.getTokens();
-    const filteredTokens = tokenListData.filter(token =>
-      token.company.hash_id === this.param.company_id &&
-      ( filterSeriesId ? filterSeriesId === token.series.hash_id : allowedAbbreviations.includes(token.token_abbreviation)) &&
-      
-      allowedAbbreviations.includes(token.token_abbreviation) &&
-      moment(token.token_date).format('YYYY-MM-DD') === moment().format('YYYY-MM-DD') &&
-      token.token_status === TokenStatus.WAITING
-    );
+    const filteredTokens = tokenListData
+      .filter((token) => {
+        return (
+          token.company.hash_id === this.param.company_id &&
+          (filterSeriesId
+            ? filterSeriesId === token.series.hash_id
+            : allowedAbbreviations.includes(token.token_abbreviation)) &&
+          allowedAbbreviations.includes(token.token_abbreviation) &&
+          (token.transfer_department
+            ? token.transfer_department.id === seriesOfCounter.dept_id
+            : true) &&
+          (token.transfer_counter
+            ? token.transfer_counter.id === seriesOfCounter.id
+            : true) &&
+          (seriesOfCounter.company.ht_company_settings[0]
+            .display_transfer_token === DisplayTransferToken.TRANSFER_LIST
+            ? token.token_status === TokenStatus.WAITING
+            : token.token_status === TokenStatus.WAITING ||
+              token.token_status === TokenStatus.TRANSFER)
+        );
+      })
+      .sort((a, b) => {
+        if (b.priority !== a.priority) {
+          return b.priority - a.priority;
+        }
+        return (
+          new Date(a.token_generate_time).getTime() -
+          new Date(b.token_generate_time).getTime()
+        );
+      });
 
-
-    filteredTokens.sort((a, b) => {
-      if (b.priority !== a.priority) {
-        return b.priority - a.priority;
-      }
-      return new Date(a.token_generate_time).getTime() - new Date(b.token_generate_time).getTime();
-    });
-
-    const topTwo = filteredTokens.slice(0, 2);
-
+    const topTwo = filteredTokens
+      .filter(
+        (tt) =>
+          moment(tt.token_date).format('YYYY-MM-DD') ===
+          moment().format('YYYY-MM-DD')
+      )
+      .slice(0, 2);
+    console.log('topTwo', topTwo);
     return topTwo;
   }
-
 }
