@@ -229,6 +229,7 @@ model ht_company {
   ht_holidays                    ht_holidays[]                    @relation("ht_company_ht_holidays")
 
   @@unique([asccode, email, contact_no, username, deleted_at])
+  otp otp[] @relation("otp_ht_company")
 }
 
 model ht_users {
@@ -446,6 +447,7 @@ model tokens {
   token_logs                     token_logs[]                     @relation("token_logs_ht_tokens")
 
   @@unique([token_number, token_date, company_id, deleted_at])
+  otp otp[] @relation("otp_tokens")
 }
 
 enum TransferTokenWise {
@@ -500,6 +502,8 @@ model ht_counter_filter {
   ht_user_session_logs ht_user_session_logs[] @relation("ht_user_session_logs_ht_counter_filter")
 
   token_logs token_logs[] @relation("token_logs_ht_counter_filter")
+
+  otp otp[] @relation("otp_counters")
 }
 
 model ht_appointment_token_form_data {
@@ -721,3 +725,22 @@ model ht_holidays {
 
   company ht_company @relation("ht_company_ht_holidays", fields: [company_id], references: [id])
 }
+
+model otp {
+  id          Int       @id @default(autoincrement())
+  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
+  company_id  Int       @db.Int
+  token_id    Int       @db.Int
+  counter_id  Int?       @db.Int
+  otp         Int       @db.Int
+  mobile_no   String    @db.VarChar(15)
+  is_verify   Int       @default(0) @db.TinyInt
+  expired_at  DateTime  @db.Time()
+  created_at  DateTime  @default(now()) @db.DateTime(6)
+  updated_at  DateTime? @updatedAt @db.DateTime(6)
+
+  token      tokens      @relation("otp_tokens", fields: [token_id], references: [id])
+  counter    ht_counter_filter?    @relation("otp_counters", fields: [counter_id], references: [id])
+  company    ht_company @relation("otp_ht_company", fields: [company_id], references: [id])
+}
+
