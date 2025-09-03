@@ -75,7 +75,7 @@ const controller = new TokenController();
  */
 
 /**
- * GET /process-token/token/statistics/{company_id}/{counter_id}
+ * GET /process-token/token-list/statistics/{company_id}/{counter_id}
  * @summary Get token statistics by status for a specific counter
  * @tags token
  * @security Authorization
