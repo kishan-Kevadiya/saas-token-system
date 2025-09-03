@@ -227,9 +227,9 @@ model ht_company {
   token_logs                     token_logs[]                     @relation("token_logs_ht_company")
   print_settings                 print_settings[]                 @relation("print_settings_ht_company")
   ht_holidays                    ht_holidays[]                    @relation("ht_company_ht_holidays")
+  otp                            otp[]                            @relation("otp_ht_company")
 
   @@unique([asccode, email, contact_no, username, deleted_at])
-  otp otp[] @relation("otp_ht_company")
 }
 
 model ht_users {
@@ -358,18 +358,18 @@ model ht_counter_settings {
 model ht_department {
   id                 Int       @id @default(autoincrement())
   hash_id            String    @unique @default(uuid())
-  company_id         Int?      @db.Int
-  dept_english_name  String?   @db.VarChar(255)
+  company_id         Int       @db.Int
+  dept_english_name  String    @db.VarChar(255)
   dept_hindi_name    String    @db.Text
   dept_regional_name String    @db.Text
-  allow_abbreviation String?   @db.VarChar(255)
-  status             Int?      @default(0) @db.TinyInt
+  allow_abbreviation String    @db.VarChar(255)
+  is_active          Int       @default(1) @db.TinyInt
   que                Int?      @default(0) @db.TinyInt
   created_at         DateTime  @default(now()) @db.DateTime(6)
   updated_at         DateTime? @updatedAt @db.DateTime(6)
   deleted_at         DateTime? @db.DateTime(6)
 
-  department_company           ht_company?         @relation("ht_deparment_ht_company", fields: [company_id], references: [id])
+  department_company           ht_company          @relation("ht_deparment_ht_company", fields: [company_id], references: [id])
   ht_users                     ht_users[]          @relation("ht_users_ht_department")
   ht_counter_filter_department ht_counter_filter[] @relation("ht_counter_filter_department")
   ht_buttons                   ht_buttons[]        @relation("ht_buttons_ht_department")
@@ -445,9 +445,9 @@ model tokens {
   ht_appointment_token_form_data ht_appointment_token_form_data[] @relation("ht_appointment_token_form_data_tokens")
   ht_series                      ht_series[]                      @relation("tokens_ht_series_transfer_series")
   token_logs                     token_logs[]                     @relation("token_logs_ht_tokens")
+  otp                            otp[]                            @relation("otp_tokens")
 
   @@unique([token_number, token_date, company_id, deleted_at])
-  otp otp[] @relation("otp_tokens")
 }
 
 enum TransferTokenWise {
@@ -727,20 +727,19 @@ model ht_holidays {
 }
 
 model otp {
-  id          Int       @id @default(autoincrement())
-  hash_id     String    @unique @default(uuid()) @db.VarChar(36)
-  company_id  Int       @db.Int
-  token_id    Int       @db.Int
-  counter_id  Int?       @db.Int
-  otp         Int       @db.Int
-  mobile_no   String    @db.VarChar(15)
-  is_verify   Int       @default(0) @db.TinyInt
-  expired_at  DateTime  @db.Time()
-  created_at  DateTime  @default(now()) @db.DateTime(6)
-  updated_at  DateTime? @updatedAt @db.DateTime(6)
+  id         Int       @id @default(autoincrement())
+  hash_id    String    @unique @default(uuid()) @db.VarChar(36)
+  company_id Int       @db.Int
+  token_id   Int       @db.Int
+  counter_id Int?      @db.Int
+  otp        Int       @db.Int
+  mobile_no  String    @db.VarChar(15)
+  is_verify  Int       @default(0) @db.TinyInt
+  expired_at DateTime  @db.Time()
+  created_at DateTime  @default(now()) @db.DateTime(6)
+  updated_at DateTime? @updatedAt @db.DateTime(6)
 
-  token      tokens      @relation("otp_tokens", fields: [token_id], references: [id])
-  counter    ht_counter_filter?    @relation("otp_counters", fields: [counter_id], references: [id])
-  company    ht_company @relation("otp_ht_company", fields: [company_id], references: [id])
+  token   tokens             @relation("otp_tokens", fields: [token_id], references: [id])
+  counter ht_counter_filter? @relation("otp_counters", fields: [counter_id], references: [id])
+  company ht_company         @relation("otp_ht_company", fields: [company_id], references: [id])
 }
-
