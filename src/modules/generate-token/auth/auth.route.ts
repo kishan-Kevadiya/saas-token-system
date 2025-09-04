@@ -1,9 +1,9 @@
-import { Router } from "express";
-import AuthController from "./auth.controller";
-import RequestValidator from "@/middlewares/request-validator";
-import { LoginInputDto } from "./dto/login.input.dto";
-import { validateGenerateTokenUser } from "@/middlewares/validate-generate-token-user";
-import { GerateTokenInputDto } from "./dto/generate-token.dto";
+import { Router } from 'express';
+import AuthController from './auth.controller';
+import { LoginInputDto } from './dto/login.input.dto';
+import { GerateTokenInputDto } from './dto/generate-token.dto';
+import RequestValidator from '@/middlewares/request-validator';
+import { validateGenerateTokenUser } from '@/middlewares/validate-generate-token-user';
 
 const auth: Router = Router();
 const controller = new AuthController();
@@ -108,7 +108,11 @@ auth.post('/login', RequestValidator.validate(LoginInputDto), controller.login);
  * @return 400 - Bad request - Validation errors
  */
 
-auth.post('/generate-token', RequestValidator.validate(GerateTokenInputDto), controller.generateToken )
+auth.post(
+  '/generate-token',
+  RequestValidator.validate(GerateTokenInputDto),
+  controller.generateToken
+);
 
 /**
  * GET /generate-token/auth/me
@@ -120,6 +124,5 @@ auth.post('/generate-token', RequestValidator.validate(GerateTokenInputDto), con
  * @return 500 - Internal server error
  */
 auth.get('/me', validateGenerateTokenUser, controller.getUserDetailsByToken);
-
 
 export default auth;

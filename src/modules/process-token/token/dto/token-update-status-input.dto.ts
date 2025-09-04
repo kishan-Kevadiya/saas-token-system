@@ -19,6 +19,10 @@ export class TokenStatusUpdateDto {
 
   @IsOptional()
   @IsString()
+  otp?: string;
+  
+  @IsOptional()
+  @IsString()
   filter_series_id?: string;
 
   @IsOptional()

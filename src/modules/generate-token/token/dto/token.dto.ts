@@ -5,9 +5,6 @@ export class GenerateTokenCreateInputDto {
   series_id: string;
 
   @IsString()
-  company_id: string;
-
-  @IsString()
   language_id: string;
 
   @IsOptional()

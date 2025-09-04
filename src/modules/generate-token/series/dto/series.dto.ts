@@ -20,6 +20,9 @@ export class GenerateTokenSeriesDto {
 
   @IsNumber()
   display_form?: number;
+
+  @IsString()
+  title: string;
 }
 
 export class FormFieldDto {
@@ -57,4 +60,8 @@ export class GenerateTokenSubSeriesResponseDto {
   @ValidateNested({ each: true })
   @Type(() => GenerateTokenSeriesDto)
   series: GenerateTokenSeriesDto[] | null;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
 }

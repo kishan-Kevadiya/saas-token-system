@@ -36,7 +36,7 @@ describe('AuthController', () => {
   describe('login', () => {
     it('should log in and return user details', async () => {
       const user: CurrentUserDto = {
-        id: '1',
+        id: 1,
         email: 'test@example.com',
         company_name: '',
         contact_no: null,
@@ -54,6 +54,7 @@ describe('AuthController', () => {
         is_download_token: 0,
         created_at: new Date(),
         updated_at: null,
+        hash_id: ''
       };
 
       service.login.mockResolvedValue(user);

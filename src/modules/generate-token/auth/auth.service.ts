@@ -1,15 +1,14 @@
-import prisma from '@/lib/prisma';
-import { LoginInputDto } from './dto/login.input.dto';
-import LogMessage from '@/decorators/log-message.decorator';
 import bcrypt from 'bcrypt';
+import moment from 'moment';
+import { type LoginInputDto } from './dto/login.input.dto';
+import { type GerateTokenInputDto } from './dto/generate-token.dto';
+import prisma from '@/lib/prisma';
+import LogMessage from '@/decorators/log-message.decorator';
 import { generateJWTToken } from '@/utils/generate-jwt-token';
 import { HttpBadRequestError } from '@/lib/errors';
-import moment from 'moment';
-import { GerateTokenInputDto } from './dto/generate-token.dto';
-
 
 export default class AuthService {
-     private async fetchUserInfo(whereClause) {
+  private async fetchUserInfo(whereClause) {
     return await prisma.ht_company.findFirst({
       where: whereClause,
       include: {
@@ -17,8 +16,8 @@ export default class AuthService {
         ht_holidays: {
           select: {
             holiday_date: true,
-            is_active: true
-          }
+            is_active: true,
+          },
         },
         city: true,
         state: true,
@@ -38,21 +37,21 @@ export default class AuthService {
       longitude: user.longitude,
       city: user.city
         ? {
-          id: user.city.hash_id,
-          name: user.city.name,
-        }
+            id: user.city.hash_id,
+            name: user.city.name,
+          }
         : null,
       state: user.state
         ? {
-          id: user.state.hash_id,
-          name: user.state.name,
-        }
+            id: user.state.hash_id,
+            name: user.state.name,
+          }
         : null,
       main_company: user.main_company
         ? {
-          id: user.main_company.hash_id,
-          company_name: user.main_company.company_name,
-        }
+            id: user.main_company.hash_id,
+            company_name: user.main_company.company_name,
+          }
         : null,
       appointment_generate: user.appointment_generate,
       saturday_off: user.saturday_off,
@@ -86,8 +85,16 @@ export default class AuthService {
       throw new HttpBadRequestError('Invalid credentials!', []);
     }
 
-    if (userInfo.ht_holidays.some((holiday) => (holiday.holiday_date.toISOString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
-      throw new HttpBadRequestError('The system is temporarily shutdown today due to a scheduled holiday.')
+    if (
+      userInfo.ht_holidays.some(
+        (holiday) =>
+          holiday.holiday_date.toISOString() ===
+            moment().format('YYYY-MM-DD') && holiday.is_active === 1
+      )
+    ) {
+      throw new HttpBadRequestError(
+        'The system is temporarily shutdown today due to a scheduled holiday.'
+      );
     }
 
     const token = generateJWTToken({
@@ -101,9 +108,7 @@ export default class AuthService {
     };
   }
 
-    public async getUserDetailsByHashId(
-    userId: string
-  ): Promise<any> {
+  public async getUserDetailsByHashId(userId: string): Promise<any> {
     const userInfo = await this.fetchUserInfo({
       hash_id: userId,
       deleted_at: null,
@@ -113,20 +118,29 @@ export default class AuthService {
       return null;
     }
 
-    if (userInfo.ht_holidays.some((holiday) => (holiday.holiday_date.toISOString() === moment().format('YYYY-MM-DD') && holiday.is_active === 1))) {
-      throw new HttpBadRequestError('The system is temporarily shutdown today due to a scheduled holiday.')
+    if (
+      userInfo.ht_holidays.some(
+        (holiday) =>
+          holiday.holiday_date.toISOString() ===
+            moment().format('YYYY-MM-DD') && holiday.is_active === 1
+      )
+    ) {
+      throw new HttpBadRequestError(
+        'The system is temporarily shutdown today due to a scheduled holiday.'
+      );
     }
 
     return this.mapUserResponse(userInfo);
   }
+
   public async getToken(data: GerateTokenInputDto): Promise<any> {
-      const userInfo = await this.fetchUserInfo({
+    const userInfo = await this.fetchUserInfo({
       asccode: data.asccode,
       deleted_at: null,
     });
 
     if (!userInfo) {
-        throw new HttpBadRequestError('Invalid credential')
+      throw new HttpBadRequestError('Invalid credential');
     }
 
     const token = generateJWTToken({
@@ -135,7 +149,7 @@ export default class AuthService {
     });
 
     return {
-      token
+      token,
     };
   }
 }

@@ -643,6 +643,41 @@ export default class TokenService {
           );
 
           const updatedToken = await prisma.$transaction(async (tx) => {
+            if(counterDetail.transfer_token_next_click !== 1){
+
+              if(tokenDetails.token_series.is_otp_required === 1){
+              if(!data.otp){
+                throw new HttpBadRequestError('OTP is required to complete the token');
+              } 
+
+              const otpRecord = await prisma.otp.findFirst({
+                where: {
+                  token_id: tokenDetails.id,
+                  is_verify: 0,
+                  otp: Number(data.otp),
+                  created_at: {
+                    gte: new Date(new Date().getTime() - 5 * 60000)
+                  }
+                },
+                orderBy: {
+                  created_at: 'desc'
+                }
+              });
+
+              if(!otpRecord){
+                throw new HttpBadRequestError('Invalid or expired OTP');
+              }
+              await prisma.otp.update({
+                where: {
+                  id: otpRecord.id
+                },
+                data:{
+                  is_verify: 1,
+                }
+              })
+              
+            }
+            }
             const updatedToken = await tx.tokens.update({
               where: {
                 id: tokenDetails.id,
@@ -697,6 +732,7 @@ export default class TokenService {
               token_series: {
                 select: {
                   hash_id: true,
+                  is_otp_required: true,
                 },
               },
               created_at: true,
@@ -873,7 +909,7 @@ export default class TokenService {
       }
 
       case 'HOLD': {
-        if (tokenDetails.token_status !== TokenStatus.ACTIVE) {
+        if (tokenDetails?.token_status !== TokenStatus.ACTIVE) {
           throw new HttpBadRequestError(
             'Only ACTIVE tokens can be moved to HOLD!'
           );

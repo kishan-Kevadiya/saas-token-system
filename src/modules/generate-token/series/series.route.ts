@@ -43,7 +43,7 @@ const controller = new SeriesController();
  * @return 404 - Company not found
  * @return 500 - Internal server error
  */
-series.get('/:company_id/:langauge_id', controller.getSeries);
+series.get('/:langauge_id', controller.getSeries);
 
 /**
  * GET /series/sub-series/{series_id}/{langauge_id}

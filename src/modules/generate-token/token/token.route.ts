@@ -67,6 +67,8 @@ token.post(
   controller.generateToken
 );
 
+token.get('/avg-waiting-time',controller.getAvgWaitingTime)
+
 /**
  * GET /generate-token/token/{company_id}
  * @summary Get all tokens for a company

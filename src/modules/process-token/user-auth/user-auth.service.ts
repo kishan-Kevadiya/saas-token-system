@@ -157,6 +157,7 @@ export default class UserAuthService {
           id: true,
           hash_id: true,
           counter_name: true,
+          is_otp_restricted: true,
         },
       });
     }

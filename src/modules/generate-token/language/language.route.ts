@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import LanguageController from './language.controller';
-
 const language: Router = Router();
 const controller = new LanguageController();
 
@@ -9,12 +8,12 @@ const controller = new LanguageController();
  * @typedef {object} GererateTokenLanguageResponse
  * @property {string} id - hash id of language
  * @property {string} name - English name of language
- * @property {string} code - Language code (e.g., 'en', 'es')
+ * @property {string} code - Language code
  * @property {string} title - Display title of language
  */
 
 /**
- * GET /language/{company_id}
+ * GET /language
  * @summary Get languages for a company
  * @tags language
  * @security Authorization
@@ -24,6 +23,6 @@ const controller = new LanguageController();
  * @return  404 - Company not found or no languages found
  * @return  500 - Internal server error
  */
-language.get('/:company_id', controller.getLanguages);
+language.get('/',  controller.getLanguages);
 
 export default language;

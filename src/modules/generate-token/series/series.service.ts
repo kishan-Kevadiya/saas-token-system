@@ -5,16 +5,18 @@ import {
 } from './dto/series.dto';
 import { HttpNotFoundError } from '@/lib/errors';
 import prisma from '@/lib/prisma';
+import { lang } from 'moment';
+import { CurrentUserDto } from '../auth/dto/current-user.dto';
 
 export default class SeriesService {
   public getTopLevelSeries = async (
-    companyId: string,
-    langaugeId: string
+    langaugeId: string,
+    currentUser: CurrentUserDto
   ): Promise<GenerateTokenSeriesDto[]> => {
     const [company, language] = await Promise.all([
       prisma.ht_company.findUnique({
         where: {
-          hash_id: companyId,
+          id: currentUser.id,
           deleted_at: null,
         },
         select: { id: true },
@@ -56,6 +58,7 @@ export default class SeriesService {
         id: item.hash_id,
         series_name: item[this.getLanguageField(language.name)],
         series_image: item.series_image ?? null,
+        title: language.title,
       })
     );
   };
@@ -184,6 +187,7 @@ export default class SeriesService {
         series_name: data[this.getLanguageField(language.name)],
         series_image: data.series_image,
         display_form: data.display_form,
+         title: language.title,
       })
     );
 
@@ -193,6 +197,7 @@ export default class SeriesService {
       display_form: parentSeries.display_form,
       form_data: null,
       series: seriesData,
+      title: language?.form_title
     };
   }
 

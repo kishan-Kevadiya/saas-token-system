@@ -7,30 +7,6 @@ const counter: Router = Router();
 const controller = new CounterController();
 
 /**
- * CounterListForDropDownList
- * @typedef {object} CounterListForDropDownList
- * @property {string} hash_id - hash id of the counter filter
- * @property {number} counter_no - number of the counter filter
- * @property {string} counter_name - name of the counter filter
- */
-
-/**
- * GET /process-token/counter/dropdown-list
- * @summary Get counter drop down list
- * @tags counter
- * @security Authorization
- * @return {CounterListForDropDownList[]} 200 - counter filter dropdown list
- * @return 401 - Unauthorized
- * @return 500 - Internal server error
- * @return 404 - Not found
- */
-counter.get(
-  '/dropdown-list',
-  validateProcessTokenAuthUser,
-  controller.counterListForDropDown
-);
-
-/**
  * CounterFilterDetail
  * @typedef {object} CounterFilterDetail
  * @property {string} id - hash id of counter filter
@@ -56,5 +32,29 @@ counter.get(
  * @return 404 - Not found
  */
 counter.get('/', validateProcessTokenUser, controller.getCounterByCompanyId);
+
+/**
+ * CounterListForDropDownList
+ * @typedef {object} CounterListForDropDownList
+ * @property {string} hash_id - hash id of the counter filter
+ * @property {number} counter_no - number of the counter filter
+ * @property {string} counter_name - name of the counter filter
+ */
+
+/**
+ * GET /process-token/counter/dropdown-list
+ * @summary Get counter drop down list
+ * @tags counter
+ * @security Authorization
+ * @return {CounterListForDropDownList[]} 200 - counter filter dropdown list
+ * @return 401 - Unauthorized
+ * @return 500 - Internal server error
+ * @return 404 - Not found
+ */
+counter.get(
+  '/dropdown-list',
+  validateProcessTokenAuthUser,
+  controller.counterListForDropDown
+);
 
 export default counter;

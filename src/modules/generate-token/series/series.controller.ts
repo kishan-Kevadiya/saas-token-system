@@ -23,8 +23,8 @@ export default class SeriesController extends Api {
   ): Promise<void> => {
     try {
       const series = await this.seriesService.getTopLevelSeries(
-        req.params.company_id,
-        req.params.langauge_id
+        req.params.langauge_id,
+        res.locals.currentUser
       );
       this.send(
         res,

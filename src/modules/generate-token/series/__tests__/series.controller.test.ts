@@ -37,6 +37,7 @@ describe('SeriesController', () => {
           id: 'id1',
           series_name: 'series',
           series_image: null,
+          title: ''
         },
       ];
 

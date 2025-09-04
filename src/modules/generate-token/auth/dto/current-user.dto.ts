@@ -25,8 +25,11 @@ export class processTokenUserMainCompanyDto {
 }
 
 export class CurrentUserDto {
+  @IsNumber()
+  id: number;
+
   @IsString()
-  id: string;
+  hash_id: string;
 
   @IsString()
   company_name: string;

@@ -1,14 +1,16 @@
 import { type GenerateTokenlanguageDto } from './dto/language.dto';
 import { HttpNotFoundError } from '@/lib/errors';
 import prisma from '@/lib/prisma';
+import { CurrentUserDto } from '../auth/dto/current-user.dto';
 
 export default class LanguageService {
   public async getLanguagesByCompanyId(
-    hashId: string
+    currentUser: CurrentUserDto
   ): Promise<GenerateTokenlanguageDto[]> {
+    console.log('id', currentUser)
     const company = await prisma.ht_company.findUnique({
       where: {
-        hash_id: hashId,
+        id: currentUser.id,
         deleted_at: null,
       },
       select: {

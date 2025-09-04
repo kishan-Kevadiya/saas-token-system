@@ -20,7 +20,7 @@ export default class TokenController extends Api {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const token = await this.tokenService.generateToken(req.body);
+      const token = await this.tokenService.generateToken(req.body, res.locals.currentUser);
       const roomName = `company:${token.company.id}:series:${token.series_id}`;
       socketService.emitToRoom(
         roomName,
@@ -49,6 +49,29 @@ export default class TokenController extends Api {
       const tokens = await this.tokenService.getTokensByCompany(
         req.params.company_id,
         date as string
+      );
+
+      this.send(
+        res,
+        tokens,
+        HttpStatusCode.Ok,
+        'Tokens retrieved successfully'
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+  public getAvgWaitingTime = async (
+    req: Request,
+    res: CustomResponse<any[]>,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { date } = req.query;
+
+      const tokens = await this.tokenService.getComprehensiveWaitingTime(
+       req.body.company_id,
+       req.body.current_token_id,
       );
 
       this.send(

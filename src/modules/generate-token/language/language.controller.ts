@@ -19,8 +19,9 @@ export default class LanguageController extends Api {
     next: NextFunction
   ): Promise<void> => {
     try {
+      console.log('  res.locals.currentUser',   res.locals.currentUser)
       const languages = await this.languageService.getLanguagesByCompanyId(
-        req.params.company_id
+        res.locals.currentUser
       );
 
       this.send(
