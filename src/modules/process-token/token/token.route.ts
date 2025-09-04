@@ -48,10 +48,9 @@ const controller = new TokenController();
  */
 
 /**
- * POST /process-token/token-status/{id}
+ * POST /process-token/token-status
  * @summary Update token status
  * @tags token-status
- * @param {string} id.path.required - hash id of the token
  * @param {TokenStatusInputBody} request.body.required
  * @return {TokenResponse} 200 - Token status updated successfully
  * @return 400 - Bad request

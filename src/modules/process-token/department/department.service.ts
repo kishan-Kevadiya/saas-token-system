@@ -9,7 +9,7 @@ export default class DepartmentService {
     const department = await prisma.ht_department.findMany({
       where: {
         company_id: currentUser.company.id,
-        status: 1,
+        is_active: 1,
       },
       select: {
         hash_id: true,

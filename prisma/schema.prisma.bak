@@ -596,7 +596,6 @@ model ht_holidays {
   company_id   Int
   holiday_date DateTime   @db.Date
   is_active    Int        @default(1)
-  status       Int?
   company      ht_company @relation("ht_company_ht_holidays", fields: [company_id], references: [id])
 
   @@index([company_id], map: "ht_holidays_company_id_fkey")
